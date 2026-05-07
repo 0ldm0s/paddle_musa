@@ -1,0 +1,61 @@
+name: paddle_musa_ci
+
+on:
+  workflow_dispatch:
+  push:
+  pull_request:
+
+jobs:
+  paddle_musa:
+    runs-on: [self-hosted]
+    timeout-minutes: 360
+
+    env:
+      S5000IMG: sh-harbor.mthreads.com/mt-ai/musa-paddle-dev:20260114_434
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run paddle_musa CI
+        run: |
+          docker run --rm \
+            --network host \
+            --user root \
+            --shm-size 20G \
+            --pid host \
+            -e MTHREADS_VISIBLE_DEVICES=all \
+            -e MUSA_VISIBLE_DEVICES=all \
+            -v "$PWD:/workspace" \
+            "$S5000IMG" \
+            bash -lc '
+              set -e
+
+              rsync -a --delete \
+                --exclude "Paddle/" \
+                --exclude "backends/musa/third_party/" \
+                /workspace/ /home/paddle_musa/
+
+              echo "01-S5000-env prepare"
+              cd /home/paddle_musa
+              apt-get update && apt-get install -y patchelf
+              pip3 install -r ./Paddle/python/requirements.txt
+              pip3 install -r ./python/requirements.txt
+
+              echo "02-S5000-build paddle"
+              cd /home/paddle_musa/Paddle
+              rm -rf build
+              cd /home/paddle_musa/backends/musa
+              rm -rf build
+              echo y | bash tools/build.sh -p
+              pip3 install numpy==1.22.4
+              echo y | bash tools/build.sh -m
+
+              echo "03-S5000-unit test"
+              cd /home/paddle_musa
+              export PADDLE_XCCL_BACKEND=musa
+              export MUSA_VISIBLE_DEVICES=6,7
+              cd ./backends/musa
+              bash tools/run_ut.sh
+            '
+
