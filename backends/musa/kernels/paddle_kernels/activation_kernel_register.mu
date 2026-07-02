@@ -1,281 +1,34 @@
-// Reserved. Copyright (c) 2025 PaddlePaddle Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-//
-// Modifications:
-// Copyright (c) 2025 Moore Threads Technology Co., Ltd("Moore Threads"). All
-// rights reserved.
-// - [register musa backend]
+/* Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License. */
 
 #include "paddle/phi/kernels/activation_kernel.h"
 
 #include "paddle/phi/backends/gpu/gpu_context.h"
 #include "paddle/phi/backends/gpu/gpu_device_function.h"
 #include "paddle/phi/core/kernel_registry.h"
-#include "paddle/phi/kernels/full_kernel.h"
-#include "paddle/phi/kernels/funcs/elementwise_base.h"
-#include "paddle/phi/kernels/impl/activation_grad_impl.h"
-#include "paddle/phi/kernels/impl/activation_impl.h"
+#include "paddle/phi/kernels/gpu/activation_kernel.cu"
 
-namespace phi {
+PD_CUSTOM_KERNEL_REGISTER(relu,
+                   musa,
+                   ALL_LAYOUT,
+                   phi::ReluKernel,
+                   float,
+                   double,
+                   phi::float16,
+                   phi::bfloat16) {}
 
-template <typename T, typename Context, typename Functor>
-void ActivationGPUImpl(const Context& dev_ctx,
-                       const DenseTensor& x,
-                       DenseTensor* out,
-                       const Functor& functor) {
-  PADDLE_ENFORCE_NOT_NULL(out,
-                          errors::NotFound("Output Out should not be nullptr"));
-  dev_ctx.template Alloc<T>(out);
-  if (out->numel() == 0) {
-    return;
-  }
-  std::vector<const DenseTensor*> ins = {&x};
-  std::vector<DenseTensor*> outs = {out};
-  funcs::ElementwiseKernel<T>(dev_ctx, ins, &outs, functor);
-}
-
-#define DEFINE_GPU_ACTIVATION_KERNEL(name, functor_class)               \
-  template <typename T, typename Context>                               \
-  void name##Kernel(                                                    \
-      const Context& dev_ctx, const DenseTensor& x, DenseTensor* out) { \
-    funcs::functor_class<T> functor;                                    \
-    ActivationGPUImpl<T, Context, funcs::functor_class<T>>(             \
-        dev_ctx, x, out, functor);                                      \
-  }
-
-#define DEFINE_GPU_ACTIVATION_KERNEL_WITH_INT_IN_FLOAT_OUT(name,           \
-                                                           functor_class)  \
-  template <typename T, typename Context>                                  \
-  void name##Kernel(                                                       \
-      const Context& dev_ctx, const DenseTensor& x, DenseTensor* out) {    \
-    funcs::functor_class<T> functor;                                       \
-    using U =                                                              \
-        typename std::conditional_t<std::is_integral<T>::value, float, T>; \
-    ActivationGPUImpl<U, Context, funcs::functor_class<T>>(                \
-        dev_ctx, x, out, functor);                                         \
-  }
-
-#define DEFINE_GPU_ACT_KERNEL_WITH_ONE_ATTRS(name, functor_class, attr) \
-  template <typename T, typename Context>                               \
-  void name##Kernel(const Context& dev_ctx,                             \
-                    const DenseTensor& x,                               \
-                    float attr,                                         \
-                    DenseTensor* out) {                                 \
-    funcs::functor_class<T> functor;                                    \
-    auto attrs = functor.GetAttrs();                                    \
-    *(attrs[0].second) = attr;                                          \
-    ActivationGPUImpl<T, Context, funcs::functor_class<T>>(             \
-        dev_ctx, x, out, functor);                                      \
-  }
-
-#define DEFINE_GPU_ACT_KERNEL_WITH_TWO_ATTRS(               \
-    name, functor_class, attr1, attr2)                      \
-  template <typename T, typename Context>                   \
-  void name##Kernel(const Context& dev_ctx,                 \
-                    const DenseTensor& x,                   \
-                    float attr1,                            \
-                    float attr2,                            \
-                    DenseTensor* out) {                     \
-    funcs::functor_class<T> functor;                        \
-    auto attrs = functor.GetAttrs();                        \
-    *(attrs[0].second) = attr1;                             \
-    *(attrs[1].second) = attr2;                             \
-    ActivationGPUImpl<T, Context, funcs::functor_class<T>>( \
-        dev_ctx, x, out, functor);                          \
-  }
-
-DEFINE_GPU_ACTIVATION_KERNEL(Cos, CudaCosFunctor)
-DEFINE_GPU_ACTIVATION_KERNEL(Tan, CudaTanFunctor)
-DEFINE_GPU_ACTIVATION_KERNEL(Acos, CudaAcosFunctor)
-DEFINE_GPU_ACTIVATION_KERNEL(Sin, CudaSinFunctor)
-DEFINE_GPU_ACTIVATION_KERNEL(Asin, CudaAsinFunctor)
-DEFINE_GPU_ACTIVATION_KERNEL(Atan, CudaAtanFunctor)
-DEFINE_GPU_ACTIVATION_KERNEL(Sinh, CudaSinhFunctor)
-DEFINE_GPU_ACTIVATION_KERNEL(Cosh, CudaCoshFunctor)
-DEFINE_GPU_ACTIVATION_KERNEL(Asinh, CudaAsinhFunctor)
-DEFINE_GPU_ACTIVATION_KERNEL(Acosh, CudaAcoshFunctor)
-DEFINE_GPU_ACTIVATION_KERNEL(Atanh, CudaAtanhFunctor)
-DEFINE_GPU_ACTIVATION_KERNEL(Relu, CudaReluFunctor)
-DEFINE_GPU_ACTIVATION_KERNEL(Tanh, CudaTanhFunctor)
-DEFINE_GPU_ACTIVATION_KERNEL(TanhShrink, CudaTanhShrinkFunctor)
-DEFINE_GPU_ACTIVATION_KERNEL(Silu, CudaSiluFunctor)
-DEFINE_GPU_ACTIVATION_KERNEL(Reciprocal, CudaReciprocalFunctor)
-DEFINE_GPU_ACTIVATION_KERNEL(Square, CudaSquareFunctor)
-DEFINE_GPU_ACTIVATION_KERNEL(Sqrt, CudaSqrtFunctor)
-DEFINE_GPU_ACTIVATION_KERNEL(Rsqrt, CudaRsqrtFunctor)
-DEFINE_GPU_ACTIVATION_KERNEL(Softsign, CudaSoftsignFunctor)
-DEFINE_GPU_ACTIVATION_KERNEL(Sigmoid, CudaSigmoidFunctor)
-DEFINE_GPU_ACTIVATION_KERNEL(LogSigmoid, CudaLogSigmoidFunctor)
-DEFINE_GPU_ACTIVATION_KERNEL(Floor, CudaFloorFunctor)
-DEFINE_GPU_ACTIVATION_KERNEL(Ceil, CudaCeilFunctor)
-DEFINE_GPU_ACTIVATION_KERNEL(Rint, CudaRintFunctor)
-
-DEFINE_GPU_ACTIVATION_KERNEL_WITH_INT_IN_FLOAT_OUT(Log, CudaLogFunctor)
-DEFINE_GPU_ACTIVATION_KERNEL_WITH_INT_IN_FLOAT_OUT(Log2, CudaLog2Functor)
-DEFINE_GPU_ACTIVATION_KERNEL_WITH_INT_IN_FLOAT_OUT(Log10, CudaLog10Functor)
-DEFINE_GPU_ACTIVATION_KERNEL_WITH_INT_IN_FLOAT_OUT(Log1p, CudaLog1pFunctor)
-DEFINE_GPU_ACTIVATION_KERNEL_WITH_INT_IN_FLOAT_OUT(Exp, CudaExpFunctor)
-DEFINE_GPU_ACTIVATION_KERNEL_WITH_INT_IN_FLOAT_OUT(Expm1, CudaExpm1Functor)
-
-DEFINE_GPU_ACT_KERNEL_WITH_ONE_ATTRS(LeakyRelu, CudaLeakyReluFunctor, alpha)
-DEFINE_GPU_ACT_KERNEL_WITH_ONE_ATTRS(LogitCUDA, CudaLogitFunctor, eps)
-DEFINE_GPU_ACT_KERNEL_WITH_ONE_ATTRS(HardShrink,
-                                     CudaHardShrinkFunctor,
-                                     threshold)
-DEFINE_GPU_ACT_KERNEL_WITH_ONE_ATTRS(SoftShrink, CudaSoftShrinkFunctor, lambda)
-DEFINE_GPU_ACT_KERNEL_WITH_ONE_ATTRS(Elu, CudaELUFunctor, alpha)
-DEFINE_GPU_ACT_KERNEL_WITH_ONE_ATTRS(Mish, CudaMishFunctor, threshold)
-DEFINE_GPU_ACT_KERNEL_WITH_ONE_ATTRS(Celu, CudaCELUFunctor, alpha)
-
-DEFINE_GPU_ACT_KERNEL_WITH_TWO_ATTRS(HardTanh,
-                                     CudaHardTanhFunctor,
-                                     t_min,
-                                     t_max)
-DEFINE_GPU_ACT_KERNEL_WITH_TWO_ATTRS(Stanh, CudaSTanhFunctor, scale_a, scale_b)
-DEFINE_GPU_ACT_KERNEL_WITH_TWO_ATTRS(Softplus,
-                                     CudaSoftplusFunctor,
-                                     beta,
-                                     threshold)
-DEFINE_GPU_ACT_KERNEL_WITH_TWO_ATTRS(HardSigmoid,
-                                     CudaHardSigmoidFunctor,
-                                     slope,
-                                     offset)
-DEFINE_GPU_ACT_KERNEL_WITH_TWO_ATTRS(Selu, CudaSeluFunctor, scale, alpha)
-DEFINE_GPU_ACT_KERNEL_WITH_TWO_ATTRS(ThresholdedRelu,
-                                     CudaThresholdedReluFunctor,
-                                     threshold,
-                                     value)
-
-template <typename T, typename Context>
-void HardSwishKernel(const Context& dev_ctx,
-                     const DenseTensor& x,
-                     DenseTensor* out) {
-  funcs::CudaHardSwishFunctor<T> functor;
-  float threshold = 6;
-  float scale = 6;
-  float offset = 3;
-  auto attrs = functor.GetAttrs();
-  *(attrs[0].second) = threshold;
-  *(attrs[1].second) = scale;
-  *(attrs[2].second) = offset;
-  ActivationGPUImpl<T, Context, funcs::CudaHardSwishFunctor<T>>(
-      dev_ctx, x, out, functor);
-}
-
-template <typename T, typename Context>
-void SwishKernel(const Context& dev_ctx,
-                 const DenseTensor& x,
-                 DenseTensor* out) {
-  funcs::CudaSwishFunctor<T> functor;
-  auto attrs = functor.GetAttrs();
-  *(attrs[0].second) = 1.0;
-  ActivationGPUImpl<T, Context, funcs::CudaSwishFunctor<T>>(
-      dev_ctx, x, out, functor);
-}
-
-template <typename T, typename Context>
-void Relu6Kernel(const Context& dev_ctx,
-                 const DenseTensor& x,
-                 DenseTensor* out) {
-  funcs::CudaRelu6Functor<T> functor;
-  auto attrs = functor.GetAttrs();
-  *(attrs[0].second) = 6.0;
-  ActivationGPUImpl<T, Context, funcs::CudaRelu6Functor<T>>(
-      dev_ctx, x, out, functor);
-}
-
-template <typename T, typename Context>
-void RoundKernel(const Context& dev_ctx,
-                 const DenseTensor& x,
-                 const int decimals,
-                 DenseTensor* out) {
-  funcs::CudaRoundFunctor<T> functor;
-  auto attrs = functor.GetAttrs();
-  *(attrs[0].second) = decimals;
-  ActivationGPUImpl<T, Context, funcs::CudaRoundFunctor<T>>(
-      dev_ctx, x, out, functor);
-}
-
-template <typename T, typename Context>
-void PowKernel(const Context& dev_ctx,
-               const DenseTensor& x,
-               const Scalar& factor,
-               DenseTensor* out) {
-  if constexpr (std::is_integral<T>::value) {
-    PADDLE_ENFORCE_GE(
-        factor.to<double>(),
-        0,
-        common::errors::InvalidArgument(
-            "Integers to negative integer powers are not allowed."));
-  } else {
-    if (factor.to<double>() == 0.5) {
-      funcs::CudaSqrtFunctor<T> functor;
-      ActivationGPUImpl<T, Context, funcs::CudaSqrtFunctor<T>>(
-          dev_ctx, x, out, functor);
-      return;
-    }
-    if (factor.to<double>() == -0.5) {
-      funcs::CudaRsqrtFunctor<T> functor;
-      ActivationGPUImpl<T, Context, funcs::CudaRsqrtFunctor<T>>(
-          dev_ctx, x, out, functor);
-      return;
-    }
-    if (factor.to<double>() == -1) {
-      funcs::CudaReciprocalFunctor<T> functor;
-      ActivationGPUImpl<T, Context, funcs::CudaReciprocalFunctor<T>>(
-          dev_ctx, x, out, functor);
-      return;
-    }
-    if (factor.to<double>() == -2) {
-      funcs::CudaRsquareFunctor<T> functor;
-      ActivationGPUImpl<T, Context, funcs::CudaRsquareFunctor<T>>(
-          dev_ctx, x, out, functor);
-      return;
-    }
-  }
-  if (factor.to<double>() == 0) {
-    std::vector<int64_t> vec_dims = common::vectorize(out->dims());
-    phi::Full<T, Context>(
-        dev_ctx, phi::IntArray(vec_dims), static_cast<T>(1), out);
-    return;
-  }
-  if (factor.to<double>() == 1) {
-    phi::Copy<Context>(dev_ctx, x, dev_ctx.GetPlace(), false, out);
-    return;
-  }
-  if (factor.to<double>() == 2) {
-    funcs::CudaSquareFunctor<T> functor;
-    ActivationGPUImpl<T, Context, funcs::CudaSquareFunctor<T>>(
-        dev_ctx, x, out, functor);
-    return;
-  }
-  if (factor.to<double>() == 3) {
-    funcs::CudaCubeFunctor<T> functor;
-    ActivationGPUImpl<T, Context, funcs::CudaCubeFunctor<T>>(
-        dev_ctx, x, out, functor);
-    return;
-  }
-
-  funcs::CudaPowFunctor<T> functor;
-  functor.SetFactor(factor.to<double>());
-  ActivationGPUImpl<T, Context, funcs::CudaPowFunctor<T>>(
-      dev_ctx, x, out, functor);
-}
-
-}  // namespace phi
-
-#define PD_REGISTER_ACTIVATION_KERNEL(name, func) \
+#define PD_MU_REGISTER_ACTIVATION_KERNEL(name, func) \
   PD_CUSTOM_KERNEL_REGISTER(name,                        \
                      musa,                         \
                      ALL_LAYOUT,                  \
@@ -285,7 +38,7 @@ void PowKernel(const Context& dev_ctx,
                      phi::float16,                \
                      phi::bfloat16) {}
 
-#define PD_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(name, func) \
+#define PD_MU_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(name, func) \
   PD_CUSTOM_KERNEL_REGISTER(name,                                     \
                      musa,                                      \
                      ALL_LAYOUT,                               \
@@ -297,52 +50,28 @@ void PowKernel(const Context& dev_ctx,
                      phi::complex64,                           \
                      phi::complex128) {}
 
-PD_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(sin, SinKernel)
-PD_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(cos, CosKernel)
-PD_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(tan, TanKernel)
-PD_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(acos, AcosKernel)
-PD_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(asin, AsinKernel)
-PD_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(atan, AtanKernel)
-PD_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(sinh, SinhKernel)
-PD_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(cosh, CoshKernel)
-PD_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(asinh, AsinhKernel)
-PD_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(acosh, AcoshKernel)
-PD_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(atanh, AtanhKernel)
-PD_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(tanh, TanhKernel)
-PD_REGISTER_ACTIVATION_KERNEL(hardtanh, HardTanhKernel)
-PD_REGISTER_ACTIVATION_KERNEL(thresholded_relu, ThresholdedReluKernel)
-PD_REGISTER_ACTIVATION_KERNEL(relu6, Relu6Kernel)
-PD_REGISTER_ACTIVATION_KERNEL(leaky_relu, LeakyReluKernel)
-PD_REGISTER_ACTIVATION_KERNEL(mish, MishKernel)
-PD_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(stanh, StanhKernel)
-PD_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(reciprocal, ReciprocalKernel)
-PD_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(sqrt, SqrtKernel)
-PD_REGISTER_ACTIVATION_KERNEL(rsqrt, RsqrtKernel)
-PD_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(softplus, SoftplusKernel)
-
-PD_REGISTER_ACTIVATION_KERNEL(hard_shrink, HardShrinkKernel)
-PD_REGISTER_ACTIVATION_KERNEL(softshrink, SoftShrinkKernel)
-PD_REGISTER_ACTIVATION_KERNEL(tanh_shrink, TanhShrinkKernel)
-PD_REGISTER_ACTIVATION_KERNEL(elu, EluKernel)
-PD_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(silu, SiluKernel)
-PD_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(softsign, SoftsignKernel)
-PD_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(sigmoid, SigmoidKernel)
-PD_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(logsigmoid, LogSigmoidKernel)
-PD_REGISTER_ACTIVATION_KERNEL(hardsigmoid, HardSigmoidKernel)
-PD_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(hardswish, HardSwishKernel)
-PD_REGISTER_ACTIVATION_KERNEL(swish, SwishKernel)
-PD_REGISTER_ACTIVATION_KERNEL(celu, CeluKernel)
-PD_REGISTER_ACTIVATION_KERNEL(selu, SeluKernel)
-PD_REGISTER_ACTIVATION_KERNEL(logit, LogitCUDAKernel)
-
-PD_CUSTOM_KERNEL_REGISTER(relu,
-                   musa,
-                   ALL_LAYOUT,
-                   phi::ReluKernel,
-                   float,
-                   double,
-                   phi::dtype::float16,
-                   phi::dtype::bfloat16) {}
+PD_MU_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(sin, SinKernel)
+PD_MU_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(cos, CosKernel)
+PD_MU_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(tan, TanKernel)
+PD_MU_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(acos, AcosKernel)
+PD_MU_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(asin, AsinKernel)
+PD_MU_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(atan, AtanKernel)
+PD_MU_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(sinh, SinhKernel)
+PD_MU_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(cosh, CoshKernel)
+PD_MU_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(asinh, AsinhKernel)
+PD_MU_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(acosh, AcoshKernel)
+PD_MU_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(atanh, AtanhKernel)
+PD_MU_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(tanh, TanhKernel)
+PD_MU_REGISTER_ACTIVATION_KERNEL(hardtanh, HardTanhKernel)
+PD_MU_REGISTER_ACTIVATION_KERNEL(thresholded_relu, ThresholdedReluKernel)
+PD_MU_REGISTER_ACTIVATION_KERNEL(relu6, Relu6Kernel)
+PD_MU_REGISTER_ACTIVATION_KERNEL(leaky_relu, LeakyReluKernel)
+PD_MU_REGISTER_ACTIVATION_KERNEL(mish, MishKernel)
+PD_MU_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(stanh, StanhKernel)
+PD_MU_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(reciprocal, ReciprocalKernel)
+PD_MU_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(sqrt, SqrtKernel)
+PD_MU_REGISTER_ACTIVATION_KERNEL(rsqrt, RsqrtKernel)
+PD_MU_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(softplus, SoftplusKernel)
 
 PD_CUSTOM_KERNEL_REGISTER(exp,
                    musa,
@@ -381,6 +110,21 @@ PD_CUSTOM_KERNEL_REGISTER(square,
                    phi::complex64,
                    phi::complex128) {}
 
+PD_MU_REGISTER_ACTIVATION_KERNEL(hard_shrink, HardShrinkKernel)
+PD_MU_REGISTER_ACTIVATION_KERNEL(softshrink, SoftShrinkKernel)
+PD_MU_REGISTER_ACTIVATION_KERNEL(tanh_shrink, TanhShrinkKernel)
+PD_MU_REGISTER_ACTIVATION_KERNEL(elu, EluKernel)
+PD_MU_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(silu, SiluKernel)
+PD_MU_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(softsign, SoftsignKernel)
+PD_MU_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(sigmoid, SigmoidKernel)
+PD_MU_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(logsigmoid, LogSigmoidKernel)
+PD_MU_REGISTER_ACTIVATION_KERNEL(hardsigmoid, HardSigmoidKernel)
+PD_MU_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(hardswish, HardSwishKernel)
+PD_MU_REGISTER_ACTIVATION_KERNEL(swish, SwishKernel)
+PD_MU_REGISTER_ACTIVATION_KERNEL(celu, CeluKernel)
+PD_MU_REGISTER_ACTIVATION_KERNEL(selu, SeluKernel)
+PD_MU_REGISTER_ACTIVATION_KERNEL(logit, LogitCUDAKernel)
+
 PD_CUSTOM_KERNEL_REGISTER(rint,
                    musa,
                    ALL_LAYOUT,
@@ -389,9 +133,8 @@ PD_CUSTOM_KERNEL_REGISTER(rint,
                    int64_t,
                    float,
                    double,
-                   phi::dtype::float16,
-                   phi::dtype::bfloat16) {}
-
+                   phi::float16,
+                   phi::bfloat16) {}
 PD_CUSTOM_KERNEL_REGISTER(round,
                    musa,
                    ALL_LAYOUT,
@@ -400,11 +143,10 @@ PD_CUSTOM_KERNEL_REGISTER(round,
                    int64_t,
                    float,
                    double,
-                   phi::dtype::float16,
-                   phi::dtype::bfloat16,
-                   phi::dtype::complex<float>,
-                   phi::dtype::complex<double>) {}
-
+                   phi::float16,
+                   phi::bfloat16,
+                   phi::complex64,
+                   phi::complex128) {}
 PD_CUSTOM_KERNEL_REGISTER(log,
                    musa,
                    ALL_LAYOUT,
@@ -413,11 +155,10 @@ PD_CUSTOM_KERNEL_REGISTER(log,
                    double,
                    int,
                    int64_t,
-                   phi::dtype::float16,
-                   phi::dtype::bfloat16,
-                   phi::dtype::complex<float>,
-                   phi::dtype::complex<double>) {}
-
+                   phi::float16,
+                   phi::bfloat16,
+                   phi::complex64,
+                   phi::complex128) {}
 PD_CUSTOM_KERNEL_REGISTER(log2,
                    musa,
                    ALL_LAYOUT,
@@ -426,11 +167,10 @@ PD_CUSTOM_KERNEL_REGISTER(log2,
                    double,
                    int,
                    int64_t,
-                   phi::dtype::float16,
-                   phi::dtype::bfloat16,
-                   phi::dtype::complex<float>,
-                   phi::dtype::complex<double>) {}
-
+                   phi::float16,
+                   phi::bfloat16,
+                   phi::complex64,
+                   phi::complex128) {}
 PD_CUSTOM_KERNEL_REGISTER(log10,
                    musa,
                    ALL_LAYOUT,
@@ -439,11 +179,10 @@ PD_CUSTOM_KERNEL_REGISTER(log10,
                    double,
                    int,
                    int64_t,
-                   phi::dtype::float16,
-                   phi::dtype::bfloat16,
-                   phi::dtype::complex<float>,
-                   phi::dtype::complex<double>) {}
-
+                   phi::float16,
+                   phi::bfloat16,
+                   phi::complex64,
+                   phi::complex128) {}
 PD_CUSTOM_KERNEL_REGISTER(log1p,
                    musa,
                    ALL_LAYOUT,
@@ -452,11 +191,10 @@ PD_CUSTOM_KERNEL_REGISTER(log1p,
                    double,
                    int,
                    int64_t,
-                   phi::dtype::float16,
-                   phi::dtype::bfloat16,
-                   phi::dtype::complex<float>,
-                   phi::dtype::complex<double>) {}
-
+                   phi::float16,
+                   phi::bfloat16,
+                   phi::complex64,
+                   phi::complex128) {}
 PD_CUSTOM_KERNEL_REGISTER(pow,
                    musa,
                    ALL_LAYOUT,
@@ -465,7 +203,33 @@ PD_CUSTOM_KERNEL_REGISTER(pow,
                    double,
                    int,
                    int64_t,
-                   phi::dtype::float16,
-                   phi::dtype::bfloat16,
-                   phi::dtype::complex<float>,
-                   phi::dtype::complex<double>) {}
+                   phi::float16,
+                   phi::bfloat16,
+                   phi::complex64,
+                   phi::complex128) {}
+PD_CUSTOM_KERNEL_REGISTER(ceil,
+                   musa,
+                   ALL_LAYOUT,
+                   phi::CeilKernel,
+                   float,
+                   double,
+                   uint8_t,
+                   int8_t,
+                   int16_t,
+                   int,
+                   int64_t,
+                   phi::float16,
+                   phi::bfloat16) {}
+PD_CUSTOM_KERNEL_REGISTER(floor,
+                   musa,
+                   ALL_LAYOUT,
+                   phi::FloorKernel,
+                   float,
+                   double,
+                   uint8_t,
+                   int8_t,
+                   int16_t,
+                   int,
+                   int64_t,
+                   phi::float16,
+                   phi::bfloat16) {}

@@ -1,0 +1,2 @@
+-EIGEN_DEVICE_FUNC uint64_t get_random_seed() {
++static EIGEN_DEVICE_FUNC uint64_t get_random_seed() {

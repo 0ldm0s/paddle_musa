@@ -1,0 +1,12 @@
+-#if defined(EIGEN_CUDACC)
+-  #include <cuda_runtime.h>
+-#elif defined(EIGEN_HIPCC)
+-  #include <hip/hip_runtime.h>
+-#endif
++#if defined(EIGEN_CUDACC)
++  #include <cuda_runtime.h>
++#elif defined(EIGEN_MUSACC)
++  #include <musa_runtime.h>
++#elif defined(EIGEN_HIPCC)
++  #include <hip/hip_runtime.h>
++#endif

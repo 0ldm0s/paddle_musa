@@ -1,0 +1,6 @@
+[
+  {
+    "from": "defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700",
+    "to": "defined(__MUSACC__)"
+  }
+]

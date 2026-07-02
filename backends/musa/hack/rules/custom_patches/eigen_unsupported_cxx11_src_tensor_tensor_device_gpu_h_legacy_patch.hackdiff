@@ -1,0 +1,10 @@
+-  gpu_assert(hipGetLastError() == hipSuccess);
+-
+-#else
++  gpu_assert(hipGetLastError() == hipSuccess);
++
++#elif defined(EIGEN_MUSACC)
++#define LAUNCH_GPU_KERNEL(kernel, gridsize, blocksize, sharedmem, device, ...)             \
++  (kernel) <<< (gridsize), (blocksize), (sharedmem), (device).stream() >>> (__VA_ARGS__);   \
++  gpu_assert(musaGetLastError() == musaSuccess);
++#else

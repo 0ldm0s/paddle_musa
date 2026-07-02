@@ -1,0 +1,6 @@
+[
+  {
+    "from": "cudaStream_t",
+    "to": "musaStream_t"
+  }
+]

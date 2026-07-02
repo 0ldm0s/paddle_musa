@@ -1,0 +1,6 @@
+[
+  {
+    "from": "cudaMemset",
+    "to": "musaMemset"
+  }
+]

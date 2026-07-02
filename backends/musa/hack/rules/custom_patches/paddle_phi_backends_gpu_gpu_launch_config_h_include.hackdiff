@@ -1,0 +1,4 @@
+-#ifdef PADDLE_WITH_CUDA
+-#include <cuda_runtime.h>
++#ifdef PADDLE_WITH_MUSA
++#include <musa_runtime.h>

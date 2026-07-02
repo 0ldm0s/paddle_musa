@@ -19,8 +19,9 @@ init() {
     BOLD='\033[1m'
     NONE='\033[0m'
     SCRIPT_NAME='paddle_musa build script'
-    CUR_DIR=$(pwd) 
-    PADDLE_PATH=../../Paddle
+    SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+    CUR_DIR=$(cd "${SCRIPT_DIR}/.." && pwd)
+    PADDLE_PATH=$(cd "${CUR_DIR}/../../Paddle" && pwd)
     PADDLE_PATCHES_DIR=${CUR_DIR}/patches/paddle
 }
 
@@ -29,6 +30,8 @@ print_usage() {
   ${BLUE}-a/--all${NONE}: build paddlepaddle and paddle_musa
   ${BLUE}-p/--paddle${NONE}: build paddlepaddle only and install
   ${BLUE}-m/--paddle_musa${NONE}: build paddle_musa only and install
+  ${BLUE}-u/--union${NONE}: build Paddle and paddle_musa in union-build single-wheel mode
+  ${BLUE}-ap/--apply_paddle_hack${NONE}: apply paddle hack replacement rules only
   ${BLUE}-t/--test${NONE}: run all unit test
   ${BLUE}-s/--single_test${NONE}: run single unit test
   ${BLUE}-c/--clean${NONE}: clean paddle_musa
@@ -44,82 +47,98 @@ function copy_impl() {
   echo -e "${BLUE}copy done ...${NONE}"
 }
 
-copy_some_hack_files() {
-  copy_impl hack/paddle/phi/kernels/autotune/gpu_timer.h paddle/phi/kernels/autotune/gpu_timer.h
-  copy_impl hack/paddle/phi/kernels/group_norm_kernel.h paddle/phi/kernels/group_norm_kernel.h
-
-  copy_impl hack/cuda_hack/float16.h paddle/phi/common/float16.h
-  copy_impl hack/cuda_hack/bfloat16.h paddle/phi/common/bfloat16.h
-  copy_impl hack/cuda_hack/complex.h paddle/phi/common/complex.h
-  
-  copy_impl hack/paddle/phi/core/enforce.h paddle/phi/core/enforce.h
-  copy_impl hack/paddle/phi/core/distributed/auto_parallel/reshard/reshard_utils.h paddle/phi/core/distributed/auto_parallel/reshard/reshard_utils.h
-  copy_impl hack/paddle/phi/core/mixed_vector.h paddle/phi/core/mixed_vector.h
-  copy_impl hack/paddle/phi/core/mixed_vector.cc paddle/phi/core/mixed_vector.cc
-  copy_impl hack/paddle/phi/core/distributed/comm_context_manager.cc paddle/phi/core/distributed/comm_context_manager.cc
-
-  copy_impl hack/paddle/phi/kernels/gpu/reduce_grad.h paddle/phi/kernels/gpu/reduce_grad.h
-  copy_impl hack/paddle/phi/kernels/gpu/reduce.h paddle/phi/kernels/gpu/reduce.h
-  copy_impl hack/paddle/phi/kernels/gpu/shuffle_batch_utils.h paddle/phi/kernels/gpu/shuffle_batch_utils.h
-  copy_impl hack/paddle/phi/kernels/gpu/flash_attn_utils.h paddle/phi/kernels/gpu/flash_attn_utils.h
-
-  copy_impl hack/paddle/phi/kernels/legacy/gpu/layer_norm_cuda_kernel.h paddle/phi/kernels/legacy/gpu/layer_norm_cuda_kernel.h
-
-  copy_impl hack/paddle/phi/kernels/gpudnn/softmax_gpudnn.h paddle/phi/kernels/gpudnn/
-  copy_impl hack/paddle/phi/CMakeLists.txt paddle/phi/CMakeLists.txt
-
-  copy_impl hack/python/paddle/distributed/collective.py python/paddle/distributed/collective.py
-  copy_impl hack/python/paddle/nn/functional/flash_attention.py python/paddle/nn/functional/flash_attention.py
-
-  copy_impl hack/python/paddle/utils/cpp_extension/__init__.py python/paddle/utils/cpp_extension/__init__.py
-  copy_impl hack/python/paddle/utils/cpp_extension/cpp_extension.py python/paddle/utils/cpp_extension/cpp_extension.py
-  copy_impl hack/python/paddle/utils/cpp_extension/extension_utils.py python/paddle/utils/cpp_extension/extension_utils.py
-
-  copy_impl hack/paddle/phi/backends/custom/* paddle/phi/backends/custom/
-  copy_impl hack/paddle/phi/backends/gpu/* paddle/phi/backends/gpu/
-  copy_impl hack/paddle/phi/common/* paddle/phi/common/
-  copy_impl hack/paddle/phi/kernels/funcs/*.h paddle/phi/kernels/funcs/
-  copy_impl hack/paddle/phi/kernels/funcs/blas/*.h paddle/phi/kernels/funcs/blas/
-  copy_impl hack/paddle/phi/kernels/funcs/detail/*.h paddle/phi/kernels/funcs/detail/
-  copy_impl hack/paddle/phi/kernels/sparse/gpu/* paddle/phi/kernels/sparse/gpu/
-  copy_impl hack/paddle/phi/kernels/funcs/sparse/* paddle/phi/kernels/funcs/sparse/
-  copy_impl hack/paddle/phi/kernels/gpudnn/softmax_gpudnn.h paddle/phi/kernels/gpudnn/
-  copy_impl hack/paddle/phi/kernels/impl/*.h paddle/phi/kernels/impl/
-  copy_impl hack/paddle/phi/backends/dynload/*.h paddle/phi/backends/dynload/
-  copy_impl hack/paddle/phi/kernels/*.cc paddle/phi/kernels/
-  copy_impl hack/paddle/phi/kernels/*.h paddle/phi/kernels/
-
-  copy_impl hack/test/legacy_test/auto_parallel_op_test.py test/legacy_test/auto_parallel_op_test.py
-  copy_impl hack/test/legacy_test/op_test.py test/legacy_test/op_test.py
-}
-
-post_copy_some_hack_files() {
-  copy_impl hack/third_party/warprnnt/include/*.h third_party/warprnnt/include/
-  copy_impl hack/third_party/warpctc/include/*.h third_party/warpctc/include/
-}
-
-apply_paddle_patches() {
-  # apply patches into paddlepaddle 
-  echo -e "${BLUE}Applying patches to ${PADDLE_PATH} ...${NONE}"
-  # clean PyTorch before patching
-  if [ -d "$PADDLE_PATH/.git" ]; then
-    echo -e "${BLUE}Stash and checkout the paddle environment before patching. ${NONE}"
-    pushd $PADDLE_PATH
-    git stash -u
-    popd
+function copy_hack_dir_except_rule_files() {
+  src_dir=$1
+  dst_dir=$2
+  if [ ! -d "${CUR_DIR}/${src_dir}" ]; then
+    return
   fi
 
-  for file in $(find ${PADDLE_PATCHES_DIR} -type f -print); do
-    if [ "${file##*.}"x = "patch"x ]; then
-      echo -e "${BLUE}applying patch: $file ${NONE}"
-      pushd $PADDLE_PATH
-      git apply --check $file
-      git apply $file
-      popd
+  mkdir -p ${PADDLE_PATH}/${dst_dir}
+  for src_file in ${CUR_DIR}/${src_dir}/*; do
+    if [ ! -f "${src_file}" ]; then
+      continue
     fi
+
+    rel_path=${src_file#${CUR_DIR}/hack/}
+    if python3 - "${CUR_DIR}/hack/hack_file_rules.json" "${rel_path}" <<'PY'
+import json
+import sys
+
+mapping_file, rel_path = sys.argv[1:]
+with open(mapping_file, "r", encoding="utf-8") as f:
+    mapping = json.load(f)
+paths = {item["path"] for item in mapping.get("files", [])}
+sys.exit(0 if rel_path in paths else 1)
+PY
+    then
+      echo -e "${BLUE}skip rule-managed hack/${rel_path}${NONE}"
+      continue
+    fi
+
+    copy_impl "hack/${rel_path}" "${dst_dir}/"
   done
-  
-  copy_some_hack_files
+}
+
+apply_hack_rules() {
+  echo -e "${BLUE}Applying hack replacement rules to ${PADDLE_PATH} ...${NONE}"
+  python3 ${CUR_DIR}/tools/apply_hack_rules.py --repo-root ${CUR_DIR} --source-root ${PADDLE_PATH}
+  echo -e "${BLUE}Applying hack replacement rules done ...${NONE}"
+}
+
+restore_paddle_repository() {
+  if ! git -C "${PADDLE_PATH}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    echo -e "${RED}${PADDLE_PATH} is not a git repository, cannot safely restore before applying hack rules. ${NONE}"
+    exit 15
+  fi
+
+  echo -e "${BLUE}Reset Paddle repository before applying hack rules. ${NONE}"
+  pushd "${PADDLE_PATH}"
+
+  echo -e "${BLUE}Paddle status before reset:${NONE}"
+  git status --short
+
+  git reset --hard HEAD
+  if [ "$?" != 0 ]; then
+    echo "reset Paddle repository failed!!!!"
+    exit 13
+  fi
+
+  git clean -fd
+  if [ "$?" != 0 ]; then
+    echo "clean Paddle repository failed!!!!"
+    exit 13
+  fi
+
+  git submodule update --init --recursive
+  if [ "$?" != 0 ]; then
+    echo "update Paddle submodules failed!!!!"
+    exit 14
+  fi
+
+  git submodule foreach --recursive 'git reset --hard HEAD'
+  if [ "$?" != 0 ]; then
+    echo "reset Paddle submodules failed!!!!"
+    exit 14
+  fi
+
+  git submodule foreach --recursive 'git clean -fd'
+  if [ "$?" != 0 ]; then
+    echo "clean Paddle submodules failed!!!!"
+    exit 14
+  fi
+
+  echo -e "${BLUE}Paddle status after reset:${NONE}"
+  git status --short
+
+  popd
+}
+
+apply_hack_paddle_rules() {
+  echo -e "${BLUE}Applying hack rules to ${PADDLE_PATH} ...${NONE}"
+  restore_paddle_repository
+
+  apply_hack_rules
 }
 
 build_paddlepaddle() {
@@ -130,22 +149,19 @@ build_paddlepaddle() {
         echo "get paddlepaddle failed!!!!"
         exit 11
     fi
+    apply_hack_paddle_rules
   fi 
   
   mkdir -p build
   pushd build
   
-  apply_paddle_patches;apply_ret=$?
-  if [ "$apply_ret" != 0 ];then
-      echo "apply paddle patches error"
-      exit 10
-  fi
   if [ ! -d "CMakeFiles" ];then 
     cmake .. -DWITH_MKL=ON \
             -DWITH_GPU=OFF \
             -DPY_VERSION=3.10 \
             -DWITH_CINN=OFF \
             -DWITH_DISTRIBUTE=ON \
+	    -DWITH_SLEEF=OFF \
             -DCMAKE_EXPORT_COMPILE_COMMANDS=on \
             -DCMAKE_CXX_FLAGS="-I/usr/local/musa/include";cmake_ret=$? 
     if [ "$cmake_ret" != 0 ];then
@@ -166,24 +182,45 @@ build_paddlepaddle() {
   pip uninstall paddlepaddle
   pip install python/dist/paddlepaddle*.whl --force-reinstall
   
-  post_copy_some_hack_files #TODO(moore threads): replace by implemention in cmake
+  #post_copy_some_hack_files #TODO(moore threads): replace by implemention in cmake
   
   popd
   popd  
 }
 
 build_paddle_musa() {
-  
-  bash tools/compile.sh;build_ret=$?
+
+  bash tools/build_standalone.sh;build_ret=$?
   if [ "$build_ret" != 0 ];then
       echo "CMake Error Found !!!"
       exit 8;
   fi
-  
-  pip uninstall paddle_musa
-  pip install build/dist/paddle_musa-*.whl
+
+  pip uninstall -y paddle_musa
+  pip install --force-reinstall build/dist/paddle_musa-*.whl
 
   PADDLE_MUSA_ROOT_PATH="$(cd ../../ && pwd)" python setup_ops.py install
+}
+
+build_union() {
+  bash tools/build_union.sh "$@"
+
+  local pkg_dir="${PADDLE_PATH}/build/python/dist"
+  local pkg_name="${PADDLE_PYTHON_PACKAGE_NAME:-paddlepaddle-musa}"
+  local pkg_prefix="${pkg_name//-/_}"
+  local latest_pkg
+
+  latest_pkg=$(ls -t "${pkg_dir}/${pkg_prefix}"*.whl 2>/dev/null | head -1)
+  if [ -z "${latest_pkg}" ]; then
+    latest_pkg=$(ls -t "${pkg_dir}"/paddlepaddle*.whl 2>/dev/null | head -1)
+  fi
+  if [ -z "${latest_pkg}" ]; then
+    echo "ERROR: No Paddle wheel package found in ${pkg_dir}"
+    exit 1
+  fi
+
+  echo -e "${BLUE}Installing union build wheel: ${latest_pkg}${NONE}"
+  pip install "${latest_pkg}" --force-reinstall
 }
 
 run_all_ut() {
@@ -203,26 +240,32 @@ run_single_ut() {
 clean() {
 
   # clean paddlepaddle
-  echo $BULE"begin clean paddlepaddle. "$NONE
-  pushd $PADDLE_PATH
-  rm build -rf
-  popd
-  echo $BULE"clean paddlepaddle finished. "$NONE
+  echo -e "${BLUE}begin clean paddlepaddle. ${NONE}"
+  rm -rf "${PADDLE_PATH}/build"
+  echo -e "${BLUE}clean paddlepaddle finished. ${NONE}"
 
   # clean paddle_musa
-  echo $BULE"begin clean paddle_musa. "$NONE
-  rm build -rf 
-  echo $BULE"clean paddle_musa finished. "$NONE
+  echo -e "${BLUE}begin clean paddle_musa. ${NONE}"
+  rm -rf "${CUR_DIR}/build"
+  rm -rf "${CUR_DIR}/dist"
+  rm -rf "${CUR_DIR}/custom_setup_ops.egg-info"
+  rm -rf "${CUR_DIR}"/*.egg-info
+  find "${CUR_DIR}" -type d -name "__pycache__" -prune -exec rm -rf {} +
+  echo -e "${BLUE}clean paddle_musa finished. ${NONE}"
 
 }
 
 main() {
   init
-  while true; do
+  while [ $# -gt 0 ]; do
     case "$1" in
     -a | --all)
       build_paddlepaddle
       build_paddle_musa 
+      shift
+      ;;
+    -ap | --apply_paddle_hack)
+      apply_hack_paddle_rules
       shift
       ;;
     -p | --paddle)
@@ -232,6 +275,11 @@ main() {
     -m | --paddle_musa)
       build_paddle_musa
       shift
+      ;;
+    -u | --union)
+      shift
+      build_union "$@"
+      break
       ;;
     -t | --test)
       run_all_ut

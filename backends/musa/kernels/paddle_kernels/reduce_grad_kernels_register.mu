@@ -24,6 +24,7 @@
 #include "paddle/phi/kernels/reduce_max_grad_kernel.h"
 #include "paddle/phi/kernels/reduce_mean_grad_kernel.h"
 #include "paddle/phi/kernels/reduce_min_grad_kernel.h"
+#include "paddle/phi/kernels/reduce_nansum_grad_kernel.h"
 #include "paddle/phi/kernels/reduce_sum_grad_kernel.h"
 
 #include "paddle/phi/backends/gpu/gpu_context.h"
@@ -31,6 +32,7 @@
 #include "paddle/phi/kernels/funcs/broadcast_function.h"
 #include "paddle/phi/kernels/funcs/compare_functors.h"
 #include "paddle/phi/kernels/funcs/elementwise_functor.h"
+#include "paddle/phi/kernels/funcs/for_range.h"
 #include "paddle/phi/kernels/funcs/reduce_function.h"
 #include "paddle/phi/kernels/gpu/reduce_grad.h"
 
@@ -177,6 +179,38 @@ void ReduceMaxGradKernel(const Context& dev_ctx,
       dev_ctx, x, out, out_grad, dims.GetData(), keep_dim, reduce_all, x_grad);
 }
 
+template <typename T>
+struct NanMaskFunctor {
+  NanMaskFunctor(const T* x_data, T* x_grad_data)
+      : x_data(x_data), x_grad_data(x_grad_data) {}
+
+  HOSTDEVICE void operator()(size_t idx) const {
+    if (x_data[idx] != x_data[idx]) {
+      x_grad_data[idx] = static_cast<T>(0);
+    }
+  }
+
+  const T* x_data;
+  T* x_grad_data;
+};
+
+template <typename T, typename Context>
+void NansumGradKernel(const Context& dev_ctx,
+                      const DenseTensor& x,
+                      const DenseTensor& out_grad,
+                      const IntArray& dims,
+                      bool keep_dim,
+                      bool reduce_all,
+                      DenseTensor* x_grad) {
+  ReduceSumGradKernel<T, Context>(
+      dev_ctx, x, out_grad, dims, keep_dim, reduce_all, x_grad);
+
+  const T* x_data = x.data<T>();
+  T* x_grad_data = x_grad->data<T>();
+  funcs::ForRange<Context> for_range(dev_ctx, x.numel());
+  for_range(NanMaskFunctor<T>(x_data, x_grad_data));
+}
+
 template <typename T, typename Context>
 void ReduceKernel(const Context& dev_ctx,
                   const DenseTensor& x,
@@ -305,6 +339,25 @@ PD_CUSTOM_KERNEL_REGISTER(sum_grad,
                    musa,
                    ALL_LAYOUT,
                    phi::ReduceSumGradKernel,
+                   bool,
+                   float,
+                   double,
+                   phi::float16,
+                   phi::bfloat16,
+                   int8_t,
+                   uint8_t,
+                   int16_t,
+                   int,
+                   int64_t,
+                   phi::complex64,
+                   phi::complex128) {
+  kernel->OutputAt(0).SetDataType(phi::DataType::UNDEFINED);
+}
+
+PD_CUSTOM_KERNEL_REGISTER(nansum_grad,
+                   musa,
+                   ALL_LAYOUT,
+                   phi::NansumGradKernel,
                    bool,
                    float,
                    double,

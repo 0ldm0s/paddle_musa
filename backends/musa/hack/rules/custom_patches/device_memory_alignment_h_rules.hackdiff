@@ -1,0 +1,5 @@
+-      PADDLE_THROW(common::errors::PreconditionNotMet(
+-          "Fluid is not compiled with CUDA/XPU."));
++      // PADDLE_THROW(common::errors::PreconditionNotMet(
++      //     "Fluid is not compiled with CUDA/XPU."));
++      alignment = 1 << 8;

@@ -18,8 +18,61 @@
 // - [register musa backend]
 
 
+#include "paddle/phi/kernels/slice_grad_kernel.h"
+#include "paddle/phi/kernels/impl/slice_grad_kernel_impl.h"
 #include "paddle/phi/kernels/sparse/unary_grad_kernel.h"
 #include "paddle/phi/core/kernel_registry.h"
+
+PD_CUSTOM_KERNEL_REGISTER(slice_grad,
+                   musa,
+                   ALL_LAYOUT,
+                   phi::SliceGradKernel,
+                   bool,
+                   int,
+                   uint8_t,
+                   int64_t,
+                   float,
+                   double,
+                   int16_t,
+                   int8_t,
+                   phi::complex64,
+                   phi::complex128,
+                   phi::bfloat16,
+                   phi::float16) {}
+
+PD_CUSTOM_KERNEL_REGISTER(slice_array_grad,
+                   musa,
+                   ALL_LAYOUT,
+                   phi::SliceArrayGradKernel,
+                   bool,
+                   int,
+                   uint8_t,
+                   int64_t,
+                   float,
+                   double,
+                   int16_t,
+                   int8_t,
+                   phi::complex64,
+                   phi::complex128,
+                   phi::bfloat16,
+                   phi::float16) {}
+
+PD_CUSTOM_KERNEL_REGISTER(slice_array_dense_grad,
+                   musa,
+                   ALL_LAYOUT,
+                   phi::SliceArrayDenseGradKernel,
+                   bool,
+                   int,
+                   uint8_t,
+                   int64_t,
+                   float,
+                   double,
+                   int16_t,
+                   int8_t,
+                   phi::complex64,
+                   phi::complex128,
+                   phi::bfloat16,
+                   phi::float16) {}
 
 PD_CUSTOM_KERNEL_REGISTER(slice_coo_grad,
                    musa,

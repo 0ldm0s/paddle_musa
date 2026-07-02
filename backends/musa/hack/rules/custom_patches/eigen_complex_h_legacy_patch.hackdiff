@@ -1,0 +1,2 @@
+-  EIGEN_STRONG_INLINE Packet2cf() {}
++  EIGEN_STRONG_INLINE Packet2cf() :v(_mm_setzero_ps()) {}

@@ -1,0 +1,108 @@
+-#include "paddle/common/hostdevice.h"
+-#ifdef PADDLE_WITH_CUDA
++#include "paddle/common/hostdevice.h"
++
++namespace phi {
++namespace dtype {
++struct PADDLE_ALIGN(2) float16; }}
++
++// declare is_floating_point specialization before including musa_fp16.h
++namespace std {
++template <>
++struct is_floating_point<phi::dtype::float16>
++    : std::integral_constant<
++          bool,
++          std::is_same<
++              phi::dtype::float16,
++              typename std::remove_cv<phi::dtype::float16>::type>::value> {};
++}
++
++#ifdef PADDLE_WITH_CUDA
+
+-
+-#ifdef PADDLE_WITH_HIP
++
++#ifdef PADDLE_WITH_MUSA
++#include <musa.h>
++#endif  // PADDLE_WITH_MUSA
++#ifdef PADDLE_WITH_HIP
+
+-
+-#ifdef __HIPCC__
++
++#ifdef __MUSACC__
++#define PADDLE_CUDA_FP16
++#include <musa_fp16.h>
++#endif
++#ifdef __HIPCC__
+
+-#ifndef PADDLE_WITH_HIP
++#if !defined(PADDLE_WITH_HIP) && !defined(PADDLE_WITH_MUSA)
+
+-#if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
+-#if defined(PADDLE_WITH_HIP) || CUDA_VERSION >= 9000
++#if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP) || \
++    defined(PADDLE_WITH_MUSA)
++#if defined(PADDLE_WITH_HIP) || defined(PADDLE_WITH_MUSA) || \
++    CUDA_VERSION >= 9000
+
+-  HOSTDEVICE inline explicit float16(float val) {
+-#if defined(PADDLE_CUDA_FP16) && \
+-    (defined(__MUSACC__) || (defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 300))
+-    half tmp = __float2half(val);
++  HOSTDEVICE inline explicit float16(float val) {
++#if defined(PADDLE_CUDA_FP16) &&                  \
++    (defined(__MUSACC__) || \
++     (defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 300))
++    half tmp = __float2half(val);
+
+-  HOSTDEVICE inline float16& operator=(const half& rhs) {
+-#if defined(PADDLE_WITH_HIP) || CUDA_VERSION >= 9000
+-    x = reinterpret_cast<__half_raw*>(const_cast<half*>(&rhs))->x;
++  HOSTDEVICE inline float16& operator=(const half& rhs) {
++#if defined(PADDLE_WITH_HIP) || CUDA_VERSION >= 9000 || \
++    defined(PADDLE_WITH_MUSA)
++    x = reinterpret_cast<__half_raw*>(const_cast<half*>(&rhs))->x;
+
+-#if defined(PADDLE_WITH_HIP) || CUDA_VERSION >= 9000
++#if defined(PADDLE_WITH_HIP) || CUDA_VERSION >= 9000 || \
++    defined(PADDLE_WITH_MUSA)
+
+-#if defined(PADDLE_CUDA_FP16) && \
+-    (defined(__MUSACC__) || (defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 300))
++#if defined(PADDLE_CUDA_FP16) &&                              \
++        (defined(__HIPCC__) ||                                \
++         (defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 300)) || \
++    defined(__MUSACC__)
+
+-#if defined(PADDLE_CUDA_FP16) && !defined(__MUSACC__) && CUDA_VERSION < 9000
++#if defined(PADDLE_CUDA_FP16) && !defined(__HIPCC__) && \
++    !defined(__MUSACC__) && CUDA_VERSION < 9000
+
+-#ifndef PADDLE_WITH_HIP  // not defined __HIP_NO_HALF_OPERATORS__
++#if !defined(PADDLE_WITH_HIP) && \
++    !defined(PADDLE_WITH_MUSA)  // not defined __HIP_NO_HALF_OPERATORS__
+
+-#if defined(PADDLE_CUDA_FP16) && defined(__MUSACC__)
++#if defined(PADDLE_CUDA_FP16) && defined(__HIPCC__)
+
+-#if defined(PADDLE_CUDA_FP16) && defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 530
++#if defined(PADDLE_CUDA_FP16) && \
++    ((defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 530) || defined(__MUSACC__))
+
+-#if defined(PADDLE_CUDA_FP16) && \
+-    (defined(__MUSACC__) || (defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 530))
++#if defined(PADDLE_CUDA_FP16) &&                  \
++    (defined(__MUSACC__) || \
++     (defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 530))
+
+-
+-#if !(defined(PADDLE_WITH_CUSTOM_KERNEL) && defined(PADDLE_WITH_HIP))
+-template <>
+-struct is_floating_point<phi::dtype::float16>
+-    : std::integral_constant<
+-          bool,
+-          std::is_same<
+-              phi::dtype::float16,
+-              typename std::remove_cv<phi::dtype::float16>::type>::value> {};
+-#endif

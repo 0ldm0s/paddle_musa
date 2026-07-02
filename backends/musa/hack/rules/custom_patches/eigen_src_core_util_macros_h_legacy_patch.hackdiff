@@ -1,0 +1,24 @@
+-#if defined(__HIPCC__) && !defined(EIGEN_NO_HIP)
++#if defined(__MUSACC__) && !defined(EIGEN_NO_MUSA)
++  // Means the compiler is either nvcc or clang with CUDA enabled
++  #define EIGEN_MUSACC __MUSACC__
++#endif
++#if defined(EIGEN_MUSACC)
++#include <musa.h>
++#endif
++
++#if defined(__MUSA_ARCH__) && !defined(EIGEN_NO_MUSA)
++  // Means we are generating code for the device
++  #define EIGEN_MUSA_ARCH __MUSA_ARCH__
++#endif
++
++#if defined(__HIPCC__) && !defined(EIGEN_NO_HIP)
+
+-#if defined(EIGEN_CUDACC) || defined(EIGEN_HIPCC)
++#if defined(EIGEN_CUDACC) || defined(EIGEN_HIPCC) || defined(EIGEN_MUSACC)
+
+-#if defined(EIGEN_CUDA_ARCH) || defined(EIGEN_HIP_DEVICE_COMPILE)
++#if defined(EIGEN_CUDA_ARCH) || defined(EIGEN_HIP_DEVICE_COMPILE) || defined(EIGEN_MUSA_ARCH)
+
+-#if defined(EIGEN_CUDACC) || defined(SYCL_DEVICE_ONLY) || defined(EIGEN_HIPCC)
++#if defined(EIGEN_CUDACC) || defined(SYCL_DEVICE_ONLY) || defined(EIGEN_HIPCC) || defined(EIGEN_MUSACC)

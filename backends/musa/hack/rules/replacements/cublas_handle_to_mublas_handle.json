@@ -1,0 +1,6 @@
+[
+  {
+    "from": "cublasHandle_t",
+    "to": "mublasHandle_t"
+  }
+]

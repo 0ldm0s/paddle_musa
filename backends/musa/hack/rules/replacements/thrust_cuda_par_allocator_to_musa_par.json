@@ -1,0 +1,6 @@
+[
+  {
+    "from": "thrust::cuda::par(allocator)",
+    "to": "thrust::musa::par(allocator)"
+  }
+]

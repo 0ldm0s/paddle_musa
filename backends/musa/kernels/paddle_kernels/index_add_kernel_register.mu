@@ -22,7 +22,7 @@
 #include "paddle/phi/core/kernel_registry.h"
 #include "paddle/phi/core/utils/data_type.h"
 
-// COMMON_DECLARE_bool(cudnn_deterministic);
+// COMMON_DECLARE_bool(mudnn_deterministic);
 
 namespace phi {
 
@@ -94,7 +94,7 @@ void IndexAddKernel(const Context& dev_ctx,
   // todo(@limin29): inplace do not need copy.
   phi::Copy(dev_ctx, x, dev_ctx.GetPlace(), false, output);
 
-  // if (FLAGS_cudnn_deterministic) {
+  // if (FLAGS_mudnn_deterministic) {
   //   VLOG(2) << "Run grad kernel of index_add with single thread.";
   //   block_dim = 1;
   //   grid_dim.x = 1;

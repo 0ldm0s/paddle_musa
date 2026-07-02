@@ -1227,9 +1227,9 @@ void GroupNormGeneralCaseKernel(const Context& dev_ctx,
 template <typename T, typename Context>
 void GroupNormKernel(const Context& dev_ctx,
                      const DenseTensor& x,
-                     const paddle::optional<DenseTensor>& scale,
-                     const paddle::optional<DenseTensor>& bias,
-                     float epsilon,
+                     const optional<DenseTensor>& scale,
+                     const optional<DenseTensor>& bias,
+                     double epsilon,
                      int groups,
                      const std::string& data_layout_str,
                      DenseTensor* y,
@@ -1295,6 +1295,35 @@ void GroupNormKernel(const Context& dev_ctx,
       dev_ctx, x, scale, bias, epsilon, groups, data_layout_str, y, mean, var);
 }
 
+template <typename T, typename Context>
+void AddGroupNormSiluKernel(const Context& dev_ctx,
+                            const DenseTensor& x,
+                            const paddle::optional<DenseTensor>& residual,
+                            const paddle::optional<DenseTensor>& scale,
+                            const paddle::optional<DenseTensor>& bias,
+                            float epsilon,
+                            int groups,
+                            const std::string& data_layout_str,
+                            const std::string& activation,
+                            DenseTensor* y,
+                            DenseTensor* residual_out,
+                            DenseTensor* mean,
+                            DenseTensor* var) {
+  GroupNormNDHWCKernel<T, Context>(dev_ctx,
+                                   x,
+                                   residual,
+                                   scale,
+                                   bias,
+                                   epsilon,
+                                   groups,
+                                   data_layout_str,
+                                   activation,
+                                   y,
+                                   residual_out,
+                                   mean,
+                                   var);
+}
+
 }  // namespace phi
 
 // TODO(someone of moore threads): only support fp32 and NHWC
@@ -1311,12 +1340,11 @@ PD_CUSTOM_KERNEL_REGISTER(group_norm,
   }
 }
 
-// TODO(someone of moore threads): open below code and add ut to verify
-// PD_CUSTOM_KERNEL_REGISTER(add_group_norm_silu,
-//                           musa,
-//                           NHWC,
-//                           phi::GroupNormNDHWCKernel,
-//                           phi::bfloat16) {
-//   kernel->OutputAt(2).SetDataType(phi::DataType::FLOAT32);
-//   kernel->OutputAt(3).SetDataType(phi::DataType::FLOAT32);
-// }
+PD_CUSTOM_KERNEL_REGISTER(add_group_norm_silu,
+                          musa,
+                          NHWC,
+                          phi::AddGroupNormSiluKernel,
+                          phi::float16) {
+  kernel->OutputAt(2).SetDataType(phi::DataType::FLOAT32);
+  kernel->OutputAt(3).SetDataType(phi::DataType::FLOAT32);
+}

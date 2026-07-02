@@ -1,165 +1,114 @@
-# PaddlePaddle MUSA 自定义设备实现
+# PaddlePaddle Custom Device Implementaion for Custom CPU
 
-[English](./README_en.md) | 简体中文
+English | [简体中文](./README_cn.md) | [日本語](./README_ja.md)
 
-## 项目简介
+Please refer to the following steps to compile, install and verify the musa device implementaion for MTGPU
 
-本项目是摩尔线程（Moore Threads）公司针对 PaddlePaddle 深度学习框架进行深度适配的代码仓库，提供完整的 MUSA（Moore Threads Unified System Architecture）自定义设备支持。通过本项目的实现，用户可以在摩尔线程 GPU S5000 系列硬件上进行高效的深度学习训练和推理。
-
-### 核心特性
-
-- **完整的硬件支持**：支持摩尔线程 S5000 GPU 系列硬件
-- **训练与推理**：同时支持模型训练和推理场景
-- **分布式支持**：集成 MCCL（Moore Threads Collective Communications Library）支持多卡分布式训练
-- **算子优化**：针对 MUSA 架构深度优化的算子实现
-- **无缝集成**：与 PaddlePaddle 框架无缝集成，用户无需修改模型代码
-
-## 环境准备
-
-### 系统要求
-
-- 操作系统：Linux (Ubuntu 20.04+)
-- Python 版本：3.7+ (推荐 3.10)
-- CMake 版本：3.10+
-- GCC 版本：8.2+ (推荐 8.2)
-
-### 依赖安装
+## Prepare environment and source code
 
 ```bash
-# 1. 拉取 PaddlePaddle CPU 开发 Docker 镜像
-# Dockerfile 位于 tools/dockerfile 目录
+# 1. pull PaddlePaddle CPU development docker image
+# dockerfile of the image is in tools/dockerfile directory
 docker pull registry.baidubce.com/device/paddle-cpu:ubuntu20-x86_64-gcc84-py310
-
-# 或对于 ARM 架构
 docker pull registry.baidubce.com/device/paddle-cpu:ubuntu20-aarch64-gcc84-py310
 
-# 2. 克隆源码（包含 paddle_musa 子模块）
+# 2. clone the source code recursively along with paddle_musa source code
 git clone --recursive https://sh-code.mthreads.com/ai/paddle_musa.git
 cd paddle_musa/backends/musa
 
-# 3. 更新子模块
+# 4. execute the following commands to update submodule
 git submodule sync
 git submodule update --remote --init --recursive
 ```
 
-## 编译与安装
-
-### 构建选项说明
-
-本项目提供灵活的构建选项，可通过 `tools/build.sh` 脚本进行编译：
+## Compile and Install
 
 ```bash
-bash tools/build.sh [选项]
-```
 
-#### 选项详解
+bash tools/build.sh -a # compile paddlepaddle and paddle_musa source code and install
+bash tools/build.sh -p # compile paddlepaddle source code and install
+bash tools/build.sh -m # compile paddle_musa source code and install, it depend on paddlepaddle build finished
 
-| 选项 | 说明 |
-|------|------|
-| `-a` 或 `--all` | **完整构建**：编译 PaddlePaddle 和 PaddleMUSA 并安装。这是最常用的选项，适合首次编译或完整构建。 |
-| `-p` 或 `--paddle` | **仅构建 PaddlePaddle**：只编译 PaddlePaddle 框架并安装。适合只需要更新 PaddlePaddle 的场景。 |
-| `-m` 或 `--paddle_musa` | **仅构建 PaddleMUSA**：只编译 MUSA 后端插件并安装。适用于 PaddlePaddle 已编译完成，只需更新 MUSA 插件的场景。 |
-| `-t` 或 `--test` | **运行所有单元测试**：编译完成后运行完整的单元测试套件，验证构建的正确性。 |
-| `-s` 或 `--single_test` | **运行单个单元测试**：运行指定的单个测试用例，用于调试和验证特定功能。 |
-| `-c` 或 `--clean` | **清理构建**：清理所有编译产物，恢复到干净状态。适合重新编译前使用。 |
-| `-h` 或 `--help` | **显示帮助信息**：显示脚本使用说明。 |
-
-### 推荐构建流程
-
-#### 首次完整构建
+## Verification
 
 ```bash
-# 完整构建 PaddlePaddle 和 PaddleMUSA
-bash tools/build.sh -a
-```
-
-#### 增量构建
-
-```bash
-# 只更新 PaddlePaddle
-bash tools/build.sh -p
-
-# 只更新 MUSA 后端
-bash tools/build.sh -m
-```
-
-#### 清理后重建
-
-```bash
-# 清理旧的构建产物
-bash tools/build.sh -c
-
-# 重新完整构建
-bash tools/build.sh -a
-```
-
-## 验证安装
-
-### 检查设备支持
-
-```bash
-# 列出可用的硬件后端
+# list available hardware backends
 python -c "import paddle; print(paddle.device.get_all_custom_device_type())"
 
-# 预期输出
+# expected output
 ['musa']
+
+# run a simple model
+python ../tests/test_MNIST_model.py
+
+# expected similar output
+... ...
+Epoch 0 step 0, Loss = [2.2956038], Accuracy = 0.15625
+Epoch 0 step 100, Loss = [2.1552896], Accuracy = 0.3125
+Epoch 0 step 200, Loss = [2.1177733], Accuracy = 0.4375
+Epoch 0 step 300, Loss = [2.0089214], Accuracy = 0.53125
+Epoch 0 step 400, Loss = [2.0845466], Accuracy = 0.421875
+Epoch 0 step 500, Loss = [2.0473], Accuracy = 0.453125
+Epoch 0 step 600, Loss = [1.8561764], Accuracy = 0.71875
+Epoch 0 step 700, Loss = [1.9915285], Accuracy = 0.53125
+Epoch 0 step 800, Loss = [1.8925955], Accuracy = 0.640625
+Epoch 0 step 900, Loss = [1.8199624], Accuracy = 0.734375
 ```
 
-## 目录结构
+## Using PaddleInference
 
-```
-paddle_musa/
-├── Paddle/                    # PaddlePaddle 子模块
-├── backends/
-│   └── musa/                  # MUSA 后端实现
-│       ├── CMakeLists.txt      # 构建配置
-│       ├── kernels/           # 算子实现
-│       ├── runtime/           # 运行时支持
-│       ├── tests/             # 测试用例
-│       └── tools/             # 构建工具
-├── ci/                        # CI/CD 配置
-├── docker/                    # Docker 配置
-├── scripts/                   # 辅助脚本
-└── README.md                  # 项目文档
-```
-
-## 常见问题
-
-### Q: 如何检查 MUSA 设备是否正确识别？
-
-```python
-import paddle
-# 查看所有自定义设备类型
-print(paddle.device.get_all_custom_device_type())
-# 查看当前设备
-print(paddle.device.get_device())
-```
-
-### Q: 编译时出现找不到 Paddle 的错误？
-
-确保先安装了 PaddlePaddle：
-```bash
-bash tools/build.sh -p  # 先编译 PaddlePaddle
-bash tools/build.sh -m   # 再编译 MUSA 后端
-```
-
-### Q: 如何清理并重新编译？
+Re-compile plugin
 
 ```bash
-bash tools/build.sh -c  # 清理
-bash tools/build.sh -a  # 完整重建
+# Compile PaddleInference
+git clone https://github.com/PaddlePaddle/Paddle.git
+git clone https://github.com/ronny1996/Paddle-Inference-Demo.git
+
+mkdir -p Paddle/build
+pushd Paddle/build
+
+cmake .. -DPY_VERSION=3.7 -DWITH_GPU=OFF -DWITH_TESTING=ON -DCMAKE_BUILD_TYPE=Release -DON_INFER=ON -DWITH_MKL=ON -DWITH_CUSTOM_DEVICE=ON
+
+make -j8
+
+popd
+cp -R Paddle/build/paddle_inference_install_dir Paddle-Inference-Demo/c++/lib/paddle_inference
+export PADDLE_INFERENCE_LIB_DIR=$(realpath Paddle-Inference-Demo/c++/lib/paddle_inference/paddle/lib)
+
+# Compile the plug-in
+mkdir -p PaddleCustomDevice/backends/custom_cpu/build
+pushd PaddleCustomDevice/backends/custom_cpu/build
+
+cmake .. -DON_INFER=ON -DPADDLE_INFERENCE_LIB_DIR=${PADDLE_INFERENCE_LIB_DIR}
+make -j8
+
+# Specify the plug-in directory
+export CUSTOM_DEVICE_ROOT=$PWD
+popd
 ```
 
-## 技术支持
+Using PaddleInference
 
-- **项目主页**: https://sh-code.mthreads.com/ai/paddle_musa
-- **问题反馈**: 请通过项目 issue 跟踪系统提交问题
-- **文档**: 更多技术文档请参考 `docs/` 目录
+```bash
+pushd Paddle-Inference-Demo/c++/resnet50
 
-## 许可证
+# Modify resnet50_test.cc, use config.EnableCustomDevice("custom_cpu", 0) to replace config.EnableUseGpu(100, 0)
 
-本项目采用 Apache License 2.0 许可证，详见 [LICENSE](../../LICENSE) 文件。
+bash run.sh
+```
 
-## 致谢
+expected similar output
 
-本项目基于 PaddlePaddle 框架开发，感谢 PaddlePaddle 团队的开源贡献。
+```bash
+I0713 09:02:38.808723 24792 resnet50_test.cc:74] run avg time is 297.75 ms
+I0713 09:02:38.808859 24792 resnet50_test.cc:89] 0 : 8.76192e-29
+I0713 09:02:38.808894 24792 resnet50_test.cc:89] 100 : 8.76192e-29
+I0713 09:02:38.808904 24792 resnet50_test.cc:89] 200 : 8.76192e-29
+I0713 09:02:38.808912 24792 resnet50_test.cc:89] 300 : 8.76192e-29
+I0713 09:02:38.808920 24792 resnet50_test.cc:89] 400 : 8.76192e-29
+I0713 09:02:38.808928 24792 resnet50_test.cc:89] 500 : 8.76192e-29
+I0713 09:02:38.808936 24792 resnet50_test.cc:89] 600 : 1.05766e-19
+I0713 09:02:38.808945 24792 resnet50_test.cc:89] 700 : 2.04093e-23
+I0713 09:02:38.808954 24792 resnet50_test.cc:89] 800 : 3.85255e-25
+I0713 09:02:38.808961 24792 resnet50_test.cc:89] 900 : 8.76192e-29
+```

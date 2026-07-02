@@ -1,0 +1,11 @@
+-#pragma once
++#pragma once
++#ifdef PADDLE_WITH_MUSA
++#include "layer_norm_impl.mu.h"
++#else
+
+-}  // namespace funcs
+-}  // namespace phi
++}  // namespace funcs
++}  // namespace phi
++#endif

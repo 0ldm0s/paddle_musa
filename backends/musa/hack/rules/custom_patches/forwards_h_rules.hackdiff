@@ -1,0 +1,29 @@
+-#pragma once
++#pragma once
++namespace musa {
++namespace dnn {
++struct Handle;
++}  // namespace dnn
++}  // namespace musa
++using mudnnHandle_t = musa::dnn::Handle *;
+
+-using cudaStream_t = struct CUstream_st *;
+-using cudaEvent_t = struct CUevent_st *;
+-
+-// Forward declaration of cuBLAS types.
+-using cublasHandle_t = struct cublasContext *;
+-
+-// Forward declaration of cuBLASLt types.
+-using cublasLtHandle_t = struct cublasLtContext *;
++#ifndef PADDLE_WITH_MUSA
++using cudaStream_t = struct CUstream_st *;
++using cudaEvent_t = struct CUevent_st *;
++#else
++using musaStream_t = struct MUstream_st *;
++using musaEvent_t = struct MUevent_st *;
++using mublasHandle_t = struct _mublasHandle_t *;
++using mublasLtHandle_t = struct mublasLtContext *;
++using musparseHandle_t = struct _musparse_handle *;
++using musolverDnHandle_t = struct musolverDnContext *;
++using mcclComm_t = struct mcclComm *;
++#endif

@@ -1,0 +1,9 @@
+-#pragma once
++#pragma once
++#ifdef PADDLE_WITH_MUSA
++#include "paddle_dnn/softmax_musadnn.h"
++#else
+ 
+-}  // namespace phi
++}  // namespace phi
++#endif //PADDLE_WITH_MUSA

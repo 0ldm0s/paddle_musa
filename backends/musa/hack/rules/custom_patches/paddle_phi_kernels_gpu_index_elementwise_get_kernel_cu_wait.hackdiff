@@ -1,0 +1,49 @@
+-#include "paddle/phi/backends/gpu/gpu_context.h"
+-#include "paddle/phi/core/kernel_registry.h"
++#include "paddle/phi/backends/gpu/gpu_context.h"
++#include "paddle/phi/backends/gpu/gpu_info.h"
++#include "paddle/phi/core/kernel_registry.h"
+@@
+-  if (funcs::IsInUint32Range(x.numel() * sizeof(T), out->numel() * sizeof(T))) {
+-    GPUIndexElementwiseGetKernel<T>(dev_ctx,
+-                                    x,
+-                                    index,
+-                                    input_dims,
+-                                    input_strides,
+-                                    index_dims,
+-                                    index_stride,
+-                                    slice_offset,
+-                                    out);
+-  } else {
+-    GPUIndexElementwiseGetKernel<T, uint64_t>(dev_ctx,
+-                                              x,
+-                                              index,
+-                                              input_dims,
+-                                              input_strides,
+-                                              index_dims,
+-                                              index_stride,
+-                                              slice_offset,
+-                                              out);
+-  }
++  if (funcs::IsInUint32Range(x.numel() * sizeof(T), out->numel() * sizeof(T))) {
++    GPUIndexElementwiseGetKernel<T>(dev_ctx,
++                                    x,
++                                    index,
++                                    input_dims,
++                                    input_strides,
++                                    index_dims,
++                                    index_stride,
++                                    slice_offset,
++                                    out);
++  } else {
++    GPUIndexElementwiseGetKernel<T, uint64_t>(dev_ctx,
++                                              x,
++                                              index,
++                                              input_dims,
++                                              input_strides,
++                                              index_dims,
++                                              index_stride,
++                                              slice_offset,
++                                              out);
++  }
++  backends::gpu::GpuStreamSync(dev_ctx.stream());

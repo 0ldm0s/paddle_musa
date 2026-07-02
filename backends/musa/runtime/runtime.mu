@@ -41,6 +41,7 @@
 #include "runtime/musa_device_handler.h"  // NOLINT
 #include "runtime/mccl_handler.h"
 #include "runtime/mublas_handler.h"
+#include "runtime/profiler_handler.h"
 
 #define MEMORY_FRACTION 0.5f
 
@@ -66,121 +67,6 @@ C_Status DestroyDevice(const C_Device device) { return C_SUCCESS; }
 C_Status Finalize() { return C_SUCCESS; }
 
 C_Status VisibleDevices(size_t *devices) { return C_SUCCESS; }
-
-struct C_CCLComm_st {
-  size_t rank;
-  size_t nranks;
-  sem_t *sig;
-  sem_t *sig_2;
-  std::string sig_name;
-  std::string sig_2_name;
-};
-
-// for unittest
-C_Status XcclGetUniqueIdSize(size_t *sz) {
-  *sz = sizeof(size_t);
-  return C_SUCCESS;
-}
-
-C_Status XcclGetUniqueId(C_CCLRootId *unique_id) {
-  auto ptr = reinterpret_cast<int8_t *>(unique_id->data);
-  for (auto i = 0; i < unique_id->sz - 1; ++i) {
-    ptr[i] = static_cast<int8_t>(std::rand() % ('z' - 'a') + 'a');
-  }
-  ptr[unique_id->sz - 1] = '\0';
-  return C_SUCCESS;
-}
-
-C_Status XcclCommInitRank(size_t ranks,
-                          C_CCLRootId *unique_id,
-                          size_t rank,
-                          C_CCLComm *comm) {
-  auto sig = sem_open(static_cast<char *>(unique_id->data), O_CREAT, 0644, 0);
-  auto sig_2 =
-      sem_open(static_cast<char *>(unique_id->data) + 1, O_CREAT, 0644, 0);
-  *comm =
-      new C_CCLComm_st({rank,
-                        ranks,
-                        sig,
-                        sig_2,
-                        std::string(static_cast<char *>(unique_id->data)),
-                        std::string(static_cast<char *>(unique_id->data) + 1)});
-  return C_SUCCESS;
-}
-
-C_Status XcclDestroyComm(C_CCLComm comm) {
-  if (comm) {
-    sem_unlink(comm->sig_name.c_str());
-    sem_unlink(comm->sig_2_name.c_str());
-    delete comm;
-  }
-  return C_SUCCESS;
-}
-
-C_Status XcclAllReduce(void *send_buf,
-                       void *recv_buf,
-                       size_t count,
-                       C_DataType data_type,
-                       C_CCLReduceOp op,
-                       C_CCLComm comm,
-                       C_Stream stream) {
-  sem_post(comm->sig);
-
-  if (comm->rank == 0) {
-    for (auto i = 0; i < comm->nranks; ++i) {
-      sem_wait(comm->sig);
-    }
-
-    for (auto i = 0; i < comm->nranks; ++i) {
-      sem_post(comm->sig_2);
-    }
-  }
-
-  sem_wait(comm->sig_2);
-  return C_SUCCESS;
-}
-
-C_Status XcclBroadcast(void *buf,
-                       size_t count,
-                       C_DataType data_type,
-                       size_t root,
-                       C_CCLComm comm,
-                       C_Stream stream) {
-  sem_post(comm->sig);
-
-  if (comm->rank == 0) {
-    for (auto i = 0; i < comm->nranks; ++i) {
-      sem_wait(comm->sig);
-    }
-
-    for (auto i = 0; i < comm->nranks; ++i) {
-      sem_post(comm->sig_2);
-    }
-  }
-
-  sem_wait(comm->sig_2);
-  return C_SUCCESS;
-}
-
-C_Status ProfilerInitialize(C_Profiler prof, void **user_data) {
-  return C_SUCCESS;
-}
-
-C_Status ProfilerFinalize(C_Profiler prof, void *user_data) {
-  return C_SUCCESS;
-}
-
-C_Status ProfilerPrepare(C_Profiler prof, void *user_data) { return C_SUCCESS; }
-
-C_Status ProfilerStart(C_Profiler prof, void *user_data) { return C_SUCCESS; }
-
-C_Status ProfilerStop(C_Profiler prof, void *user_data) { return C_SUCCESS; }
-
-C_Status ProfilerCollectData(C_Profiler prof,
-                             uint64_t start_ns,
-                             void *user_data) {
-  return C_SUCCESS;
-}
 
 void InitPlugin(CustomRuntimeParams *params) {
   PADDLE_CUSTOM_RUNTIME_CHECK_VERSION(params);
@@ -290,10 +176,10 @@ void InitPlugin(CustomRuntimeParams *params) {
   params->interface->destroy_blaslt_handle = musa::blas::DestroyBlasLtHandle;
   params->interface->blas_set_math_mode = musa::blas::BlasSetMathMode;
 
-  // params->interface->profiler_collect_trace_data = ProfilerCollectData;
-  // params->interface->profiler_initialize = ProfilerInitialize;
-  // params->interface->profiler_finalize = ProfilerFinalize;
-  // params->interface->profiler_start_tracing = ProfilerStart;
-  // params->interface->profiler_stop_tracing = ProfilerStop;
-  // params->interface->profiler_prepare_tracing = ProfilerPrepare;
+  params->interface->profiler_collect_trace_data = musa::profiler::ProfilerCollectData;
+  params->interface->profiler_initialize = musa::profiler::ProfilerInitialize;
+  params->interface->profiler_finalize = musa::profiler::ProfilerFinalize;
+  params->interface->profiler_start_tracing = musa::profiler::ProfilerStart;
+  params->interface->profiler_stop_tracing = musa::profiler::ProfilerStop;
+  params->interface->profiler_prepare_tracing = musa::profiler::ProfilerPrepare;
 }

@@ -1,0 +1,2 @@
+-#if defined(__clang__) && (defined(__CUDA__) || defined(__HIP__))
++#if defined(__clang__) && (defined(__CUDA__) || defined(__HIP__) || defined(__MUSA__))

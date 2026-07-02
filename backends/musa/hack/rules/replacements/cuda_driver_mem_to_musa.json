@@ -1,0 +1,22 @@
+[
+  {
+    "from": "CUmemGenericAllocationHandle",
+    "to": "MUmemGenericAllocationHandle"
+  },
+  {
+    "from": "CUmemAllocationProp",
+    "to": "MUmemAllocationProp"
+  },
+  {
+    "from": "CUresult",
+    "to": "MUresult"
+  },
+  {
+    "from": "cuMemCreate",
+    "to": "muMemCreate"
+  },
+  {
+    "from": "cuMemRelease",
+    "to": "muMemRelease"
+  }
+]

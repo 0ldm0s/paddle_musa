@@ -16,7 +16,7 @@ import numpy as np
 import paddle
 from paddle.optimizer import SGD
 
-paddle.set_device("custom_cpu")
+paddle.set_device("musa")
 
 BATCH_SIZE = 64
 

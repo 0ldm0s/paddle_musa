@@ -1,0 +1,2 @@
+-#include <curand_kernel.h>
++#include <murand_kernel.h>

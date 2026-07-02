@@ -1,0 +1,6 @@
+[
+  {
+    "from": "asm(\"trap;\");",
+    "to": "assert(_IS_NOT_ERROR);"
+  }
+]

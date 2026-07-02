@@ -1,0 +1,67 @@
+- #if defined(EIGEN_CUDA_ARCH)
++ #if defined(EIGEN_CUDA_ARCH) || defined(EIGEN_MUSA_ARCH)
+
+-  #if defined(EIGEN_CUDA_ARCH)
+-    return CUDART_MAX_NORMAL_F;
+-  #else
+-    return HIPRT_MAX_NORMAL_F;
+-  #endif
++  #if defined(EIGEN_CUDA_ARCH)
++    return CUDART_MAX_NORMAL_F;
++  #elif defined(EIGEN_MUSA_ARCH)
++    return MUSART_MAX_NORMAL_F;
++  #else
++    return HIPRT_MAX_NORMAL_F;
++  #endif
+
+-  #if defined(EIGEN_CUDA_ARCH)
+-    return CUDART_INF_F;
+-  #else
+-    return HIPRT_INF_F;
+-  #endif
++  #if defined(EIGEN_CUDA_ARCH)
++    return CUDART_INF_F;
++  #elif defined(EIGEN_MUSA_ARCH)
++    return MUSART_INF_F;
++  #else
++    return HIPRT_INF_F;
++  #endif
+
+-  #if defined(EIGEN_CUDA_ARCH)
+-    return CUDART_NAN_F;
+-  #else
+-    return HIPRT_NAN_F;
+-  #endif
++  #if defined(EIGEN_CUDA_ARCH)
++    return CUDART_NAN_F;
++  #elif defined(EIGEN_MUSA_ARCH)
++    return MUSART_NAN_F;
++  #else
++    return HIPRT_NAN_F;
++  #endif
+
+-  #if defined(EIGEN_CUDA_ARCH)
+-    return CUDART_INF;
+-  #else
+-    return HIPRT_INF;
+-  #endif
++  #if defined(EIGEN_CUDA_ARCH)
++    return CUDART_INF;
++  #elif defined(EIGEN_MUSA_ARCH)
++    return MUSART_INF;
++  #else
++    return HIPRT_INF;
++  #endif
+
+-  #if defined(EIGEN_CUDA_ARCH)
+-    return CUDART_NAN;
+-  #else
+-    return HIPRT_NAN;
+-  #endif
++  #if defined(EIGEN_CUDA_ARCH)
++    return CUDART_NAN;
++  #elif defined(EIGEN_MUSA_ARCH)
++    return MUSART_NAN;
++  #else
++    return HIPRT_NAN;
++  #endif

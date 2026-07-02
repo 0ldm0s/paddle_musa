@@ -1,0 +1,6 @@
+[
+  {
+    "from": "defined(__HIPCC__)",
+    "to": "defined(__MUSACC__)"
+  }
+]

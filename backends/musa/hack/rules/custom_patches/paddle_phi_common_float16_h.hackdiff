@@ -1,0 +1,48 @@
+-#ifdef PADDLE_WITH_CUDA
+-#include <cuda.h>
+-#endif  // PADDLE_WITH_CUDA
++namespace phi {
++namespace dtype {
++struct float16; }}
++
++// declare is_floating_point specialization before including musa_fp16.h
++namespace std {
++template <>
++struct is_floating_point<phi::dtype::float16>
++    : std::integral_constant<
++          bool,
++          std::is_same<
++              phi::dtype::float16,
++              typename std::remove_cv<phi::dtype::float16>::type>::value> {};
++}
++
++#ifdef PADDLE_WITH_MUSA
++#include <musa.h>
++#endif  // PADDLE_WITH_MUSA
+
+-#ifdef PADDLE_WITH_HIP
+-#include <hip/hip_runtime.h>
+-#endif
+ 
+-#if defined(__CUDACC__)
+-#define PADDLE_CUDA_FP16
+-#include <cuda_fp16.h>
+-#endif
++#ifdef __MUSACC__
++#define PADDLE_CUDA_FP16
++#include <musa_fp16.h>
++#endif
+ 
+-#if defined(PADDLE_CUDA_FP16) && defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 530
++#if defined(PADDLE_CUDA_FP16) && \
++    ((defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 530) || defined(__MUSACC__))
+ 
+-#if !(defined(PADDLE_WITH_CUSTOM_KERNEL) && defined(PADDLE_WITH_HIP))
+-template <>
+-struct is_floating_point<phi::dtype::float16>
+-    : std::integral_constant<
+-          bool,
+-          std::is_same<
+-              phi::dtype::float16,
+-              typename std::remove_cv<phi::dtype::float16>::type>::value> {};
+-#endif

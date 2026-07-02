@@ -1,0 +1,12 @@
+-#pragma once
++#pragma once
++#if defined(PADDLE_WITH_MUSA)
++#include "blaslt_impl.mu.h"
++
++#else
+
+-}  // namespace funcs
+-}  // namespace phi
++}  // namespace funcs
++}  // namespace phi
++#endif  // PADDLE_WITH_MUSA

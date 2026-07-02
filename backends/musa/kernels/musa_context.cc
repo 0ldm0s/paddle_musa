@@ -20,7 +20,7 @@
 #include "kernels/musa_context.h"
 
 namespace phi {
-void DnnWorkspaceHandle::RunFuncSync(
+void muDnnWorkspaceHandle::RunFuncSync(
     const std::function<void(void*)>& cudnn_func,
     size_t required_workspace_bytes,
     bool use_cached_allocation) {
@@ -45,9 +45,9 @@ void DnnWorkspaceHandle::RunFuncSync(
   }
 }
 
-void DnnWorkspaceHandle::ResetWorkspace() { allocation_ = nullptr; }
+void muDnnWorkspaceHandle::ResetWorkspace() { allocation_ = nullptr; }
 
-void DnnWorkspaceHandle::ReallocWorkspace(size_t required_workspace_bytes) {
+void muDnnWorkspaceHandle::ReallocWorkspace(size_t required_workspace_bytes) {
   if (required_workspace_bytes <= WorkspaceSize()) return;
   // reset allocation first before re-allocate to save memory
   allocation_.reset();

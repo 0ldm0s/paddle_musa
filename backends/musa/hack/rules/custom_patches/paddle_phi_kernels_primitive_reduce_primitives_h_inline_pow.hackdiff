@@ -1,0 +1,5 @@
+-    MPType b_ = std::pow(static_cast<MPType>(inline_abs(b)), norm_);
++    MPType b_ = inline_pow(static_cast<MPType>(inline_abs(b)), norm_);
+
+-    return static_cast<OutT>(std::pow(a, static_cast<MPType>(1.0) / norm_));
++    return static_cast<OutT>(inline_pow(a, static_cast<MPType>(1.0) / norm_));

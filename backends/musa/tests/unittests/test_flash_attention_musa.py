@@ -12,9 +12,10 @@ import paddle.nn.functional as F
 from paddle import base
 from paddle.nn.functional.flash_attention import (
     flash_attention,
-    flash_attn_unpadded,
-    scaled_dot_product_attention,
+    flash_attn_unpadded
 )
+from paddle.nn.functional import scaled_dot_product_attention
+from paddle.nn.attention import SDPBackend, sdpa_kernel
 
 import custom_setup_ops
 
@@ -260,9 +261,10 @@ class TestFlashAttentionAPI(unittest.TestCase):
                 enable_mem_efficient=self.enable_mem_efficient,
             ):
                 if self.use_sdp_api:
-                    out = scaled_dot_product_attention(
-                        q, k, v, None, self.dropout, self.causal
-                    )
+                    with sdpa_kernel(SDPBackend.FLASH_ATTENTION):
+                        out = scaled_dot_product_attention(
+                            q, k, v, None, self.dropout, self.causal
+                        )
                 else:
                     out, _ = flash_attention(
                         q, k, v, self.dropout, self.causal, self.return_softmax
@@ -308,9 +310,10 @@ class TestFlashAttentionAPI(unittest.TestCase):
                     enable_mem_efficient=self.enable_mem_efficient,
                 ):
                     if self.use_sdp_api:
-                        outs = scaled_dot_product_attention(
-                            qs, ks, vs, None, self.dropout, self.causal
-                        )
+                        with sdpa_kernel(SDPBackend.FLASH_ATTENTION):
+                            outs = scaled_dot_product_attention(
+                                qs, ks, vs, None, self.dropout, self.causal
+                            )
                     else:
                         outs, softmax = flash_attention(
                             qs,
@@ -383,11 +386,10 @@ class TestFlashAttentionWithMaskAPI(unittest.TestCase):
         m = paddle.to_tensor(
             mask, place=self.place, dtype=self.dtype, stop_gradient=False
         )
-        print(m.dtype)
-
-        out = scaled_dot_product_attention(
-            q, k, v, m, self.dropout, self.causal
-        )
+        with sdpa_kernel(SDPBackend.FLASH_ATTENTION):
+            out = scaled_dot_product_attention(
+                q, k, v, m, self.dropout, self.causal
+            )
         out_ = attention_naive_with_mask(q_, k_, v_, m)
 
         np.testing.assert_allclose(out.numpy(), out_, rtol=5e-03, atol=1e-03)

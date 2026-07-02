@@ -1,0 +1,9 @@
+-#pragma once
++#pragma once
++#if defined(PADDLE_WITH_MUSA)
++#include "paddle_impl/musa_matmul_kernel_impl.h"
++#else
+
+-}  // namespace phi
++}  // namespace phi
++#endif // PADDLE_WITH_MUSA

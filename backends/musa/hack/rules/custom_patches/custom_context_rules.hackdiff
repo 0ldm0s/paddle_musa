@@ -1,0 +1,20 @@
+-using cublasHandle_t = struct cublasContext*;
+-using cublasLtHandle_t = struct cublasLtContext*;
++#ifndef PADDLE_WITH_MUSA
++// Forward declaration of cuBLAS types.
++using mublasHandle_t = struct _mublasHandle_t*;
++using mublasLtHandle_t = struct _mublasLtHandle_t*;
++#endif
+
+-  bool tensor_core_available() const;
+-
+-  void CublasCall(const std::function<void(cublasHandle_t)>&) const;
+-
+-  void TensorCoreCublasCallIfAvailable(
+-      const std::function<void(cublasHandle_t)>&) const;
++  bool tensor_core_available() const;
++
++  PADDLE_API void CublasCall(const std::function<void(mublasHandle_t)>&) const;
++
++  PADDLE_API void TensorCoreCublasCallIfAvailable(
++      const std::function<void(mublasHandle_t)>&) const;

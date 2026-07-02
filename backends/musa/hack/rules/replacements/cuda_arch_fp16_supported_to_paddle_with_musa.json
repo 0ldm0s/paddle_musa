@@ -1,0 +1,6 @@
+[
+  {
+    "from": "CUDA_ARCH_FP16_SUPPORTED(__CUDA_ARCH__)",
+    "to": "PADDLE_WITH_MUSA"
+  }
+]

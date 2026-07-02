@@ -17,8 +17,6 @@
 // rights reserved.
 // - [register musa backend]
 
-#include "paddle/phi/kernels/gpu/flash_attn_utils.h"
-
 #include <atomic>
 #include <cstddef>
 #include <memory>
@@ -41,16 +39,17 @@
 #include "paddle/phi/kernels/funcs/elementwise_base.h"
 #include "paddle/phi/kernels/slice_kernel.h"
 #include "paddle/utils/none.h"
-
 #include "paddle/phi/kernels/full_kernel.h"
 #include "paddle/phi/kernels/tril_triu_kernel.h"
+#include "paddle/phi/kernels/gpu/flash_attn_utils.h"
 
-COMMON_DECLARE_bool(cudnn_deterministic);
+#include "kernels/kernels_utils.h"
+#include "kernels/musa_context.h"
+
 COMMON_DECLARE_int32(flash_attn_version);
 
 using ::musa::dnn::ScaledDotProductAttention;
 using ::musa::dnn::MemoryHandler;
-using muTensor = ::musa::dnn::Tensor;
 
 namespace phi {
 
@@ -144,23 +143,23 @@ void FlashAttnGradBaseKernel(
     if (dropout > 0.0) {
       contig_dropout_mask.Resize(phi::make_ddim({N, H_q, L, S}));
       dev_ctx.template Alloc<bool>(&contig_dropout_mask);
-      CHECK_MUDNN_STATUS(sdpa.SetDropoutP(dropout), "SetDropoutP");
-      CHECK_MUDNN_STATUS(sdpa.SetTraining(true), "SetTraining");
+      MUDNN_CHECK(sdpa.SetDropoutP(dropout), "SetDropoutP");
+      MUDNN_CHECK(sdpa.SetTraining(true), "SetTraining");
 
       const auto* seed_offset_data = seed_offset.data<int64_t>();
       // currently does not support cuda graph, so graph offset sets to 0
-      CHECK_MUDNN_STATUS(sdpa.SetSeed(seed_offset_data[0], seed_offset_data[1],
+      MUDNN_CHECK(sdpa.SetSeed(seed_offset_data[0], seed_offset_data[1],
         /*dropoutmode*/ 0, nullptr, nullptr, /*graph_offset*/ 0), "SetSeed");
     }
     auto musa_dropout_mask = CreateMUTensor(contig_dropout_mask);
 
-    CHECK_MUDNN_STATUS(sdpa.SetEmbedDim(H_q * E_v), "SetEmbedDim");
-    CHECK_MUDNN_STATUS(sdpa.SetHeadsNum(H_q), "SetHeadsNum");
-    CHECK_MUDNN_STATUS(sdpa.SetTraining(true), "SetTraining");
-    CHECK_MUDNN_STATUS(sdpa.SetCausal(causal), "SetCausal");
-    CHECK_MUDNN_STATUS(sdpa.SetMaskMode(IsPadMask(mask_type)), "SetMaskMode");
+    MUDNN_CHECK(sdpa.SetEmbedDim(H_q * E_v), "SetEmbedDim");
+    MUDNN_CHECK(sdpa.SetHeadsNum(H_q), "SetHeadsNum");
+    MUDNN_CHECK(sdpa.SetTraining(true), "SetTraining");
+    MUDNN_CHECK(sdpa.SetCausal(causal), "SetCausal");
+    MUDNN_CHECK(sdpa.SetMaskMode(IsPadMask(mask_type)), "SetMaskMode");
     if (scale > 0) {
-      CHECK_MUDNN_STATUS(sdpa.SetScale(scale), "SetScale");
+      MUDNN_CHECK(sdpa.SetScale(scale), "SetScale");
     }
 
     auto place = dev_ctx.GetPlace();
@@ -170,7 +169,7 @@ void FlashAttnGradBaseKernel(
           return PaddleInternalMemAlloc(bytes, place);
         };
 
-    CHECK_MUDNN_STATUS(
+    MUDNN_CHECK(
         sdpa.RunFlashBwd(
             h,
             musa_grad_q,
@@ -272,23 +271,23 @@ void FlashAttnGradBaseKernel(
   if (dropout > 0.0) {
     contig_dropout_mask.Resize(phi::make_ddim({N, H_q, L, S}));
     dev_ctx.template Alloc<bool>(&contig_dropout_mask);
-    CHECK_MUDNN_STATUS(sdpa.SetDropoutP(dropout), "SetDropoutP");
-    CHECK_MUDNN_STATUS(sdpa.SetTraining(true), "SetTraining");
+    MUDNN_CHECK(sdpa.SetDropoutP(dropout), "SetDropoutP");
+    MUDNN_CHECK(sdpa.SetTraining(true), "SetTraining");
 
     const auto* seed_offset_data = seed_offset.data<int64_t>();
     // currently does not support cuda graph, so graph offset sets to 0
-    CHECK_MUDNN_STATUS(sdpa.SetSeed(seed_offset_data[0], seed_offset_data[1],
+    MUDNN_CHECK(sdpa.SetSeed(seed_offset_data[0], seed_offset_data[1],
       /*dropoutmode*/ 0, nullptr, nullptr, /*graph_offset*/ 0), "SetSeed");
   }
   auto musa_dropout_mask = CreateMUTensor(contig_dropout_mask);
 
-  CHECK_MUDNN_STATUS(sdpa.SetEmbedDim(H_q * E_v), "SetEmbedDim");
-  CHECK_MUDNN_STATUS(sdpa.SetHeadsNum(H_q), "SetHeadsNum");
-  CHECK_MUDNN_STATUS(sdpa.SetTraining(true), "SetTraining");
-  CHECK_MUDNN_STATUS(sdpa.SetCausal(causal), "SetCausal");
-  CHECK_MUDNN_STATUS(sdpa.SetMaskMode(IsPadMask(mask_type)), "SetMaskMode");
+  MUDNN_CHECK(sdpa.SetEmbedDim(H_q * E_v), "SetEmbedDim");
+  MUDNN_CHECK(sdpa.SetHeadsNum(H_q), "SetHeadsNum");
+  MUDNN_CHECK(sdpa.SetTraining(true), "SetTraining");
+  MUDNN_CHECK(sdpa.SetCausal(causal), "SetCausal");
+  MUDNN_CHECK(sdpa.SetMaskMode(IsPadMask(mask_type)), "SetMaskMode");
   if (scale > 0) {
-    CHECK_MUDNN_STATUS(sdpa.SetScale(scale), "SetScale");
+    MUDNN_CHECK(sdpa.SetScale(scale), "SetScale");
   }
 
   auto place = dev_ctx.GetPlace();
@@ -298,7 +297,7 @@ void FlashAttnGradBaseKernel(
         return PaddleInternalMemAlloc(bytes, place);
       };
 
-  CHECK_MUDNN_STATUS(
+  MUDNN_CHECK(
       sdpa.RunFlashBwd(
           h,
           musa_grad_q,

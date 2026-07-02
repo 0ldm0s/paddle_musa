@@ -1,0 +1,9 @@
+-  if (FLAGS_use_stride_kernel && self_tensor.is_contiguous()) {
++  if (FLAGS_use_stride_kernel && self_tensor.is_contiguous() &&
++      !phi::is_custom_place(self_tensor.place())) {
+
+-    if (FLAGS_use_stride_kernel && !has_empty_index &&
+-        self_tensor->is_contiguous()) {
++    if (FLAGS_use_stride_kernel && !has_empty_index &&
++        self_tensor->is_contiguous() &&
++        !phi::is_custom_place(self_tensor->place())) {

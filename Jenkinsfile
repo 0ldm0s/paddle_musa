@@ -21,12 +21,42 @@ def Pipeline(String DockerImg, String DockerRunArgs, String GpuType) {
         gitlabCommitStatus(name: "02-${GpuType}-build paddle", state: "running") {
             sh '''
                 set -e
+                cd /home/paddle_musa
+
+                EXPECTED_PADDLE_COMMIT=$(git rev-parse HEAD:Paddle)
+                CURRENT_PADDLE_COMMIT=$(git -C Paddle rev-parse HEAD)
+                echo "Expected Paddle submodule commit: ${EXPECTED_PADDLE_COMMIT}"
+                echo "Current Paddle repository commit: ${CURRENT_PADDLE_COMMIT}"
+
+                if [ "${CURRENT_PADDLE_COMMIT}" != "${EXPECTED_PADDLE_COMMIT}" ]; then
+                    echo "Paddle commit mismatch, reset Paddle repository and checkout expected commit."
+                    cd Paddle
+
+                    echo "Paddle status before reset:"
+                    git status --short
+
+                    git reset --hard HEAD
+                    git clean -fd
+                    git submodule update --init --recursive
+                    git submodule foreach --recursive 'git reset --hard HEAD'
+                    git submodule foreach --recursive 'git clean -fd'
+
+                    git pull --ff-only || git fetch --all --tags --prune
+                    git checkout "${EXPECTED_PADDLE_COMMIT}"
+                    git submodule update --init --recursive
+
+                    echo "Paddle status after checkout:"
+                    git status --short
+
+                    cd /home/paddle_musa
+                fi
+
                 cd /home/paddle_musa/backends/musa
-                echo y | bash tools/build.sh -p
+                echo y | bash tools/build.sh -c
+                echo y | bash tools/build.sh -ap
+                echo y | bash tools/build.sh -u
 
-                pip3 install numpy==1.22.4
-
-                echo y | bash tools/build.sh -m
+                pip3 install numpy==1.23.5
             '''
         }
 
@@ -50,7 +80,7 @@ pipeline {
   }
 
   environment {
-    S5000IMG = 'sh-harbor.mthreads.com/mt-ai/musa-paddle-dev:20260114_434'
+    S5000IMG = 'sh-harbor.mthreads.com/mt-ai/musa-paddle-dev:rc4.3.4-20260525-ci-ph1'
     DOCKER_RUN_ARGS = '--network=host ' +
       '--user root ' +
       '--privileged ' +

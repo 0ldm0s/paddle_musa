@@ -1,0 +1,6 @@
+[
+  {
+    "from": "PADDLE_WITH_CUDA",
+    "to": "PADDLE_WITH_MUSA"
+  }
+]

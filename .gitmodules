@@ -1,7 +1,7 @@
 [submodule "Paddle"]
 	path = Paddle
 	url = https://github.com/PaddlePaddle/Paddle.git
-	commit = 317fd38c7dbfdcf8c449dfe614500e4b9744f24d
+	commit = 529fbc7139f44da6c0046c5aa99959d1aa43c9d4
 [submodule "backends/musa/third_party/mutlass"]
 	path = backends/musa/third_party/mutlass
 	url = https://sh-code.mthreads.com/sw/mutlass.git

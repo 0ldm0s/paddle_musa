@@ -1,0 +1,163 @@
+-    IndexT k_id = linear_idx / total_n;
+-    IndexT n_id = linear_idx % total_n;
+-    // k_id is 8_bit index.
+-    constexpr int map[16] = {
+-        0, 4, 8, 12, 1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15};
+-
+-    IndexT permute_kk = map[k_id % 16] + k_id / 16 * 16;
+-    IndexT permute_index = permute_kk % 32 + permute_kk / 32 * 128 +
+-                           32 * (n_id % 4) + total_k * 2 * (n_id / 4);
+-    int8_t shift_quant_weight = input_data_dev[linear_idx];
+-    output_data_dev[permute_index] =
+-        *reinterpret_cast<int8_t*>(&shift_quant_weight);
++    output_data_dev[linear_idx] = input_data_dev[linear_idx];
+
+-  constexpr int value_per_interval_thread = 4;
+-  int64_t linear_idx =
+-      (static_cast<int64_t>(blockIdx.x) * blockDim.x + threadIdx.x) *
+-      value_per_interval_thread;
+-  int64_t stride =
+-      static_cast<int64_t>(blockDim.x) * gridDim.x * value_per_interval_thread;
+-
+-  for (; linear_idx < numel; linear_idx += stride) {
+-    uint32_t value = *reinterpret_cast<uint32_t*>(output_data_dev + linear_idx);
+-    uint32_t result = 0;
+-
+-    constexpr int map[8] = {0, 2, 4, 6, 1, 3, 5, 7};
+-
+-    for (int ii = 0; ii < 8; ii++) {
+-      uint32_t tmp = value >> (map[ii] * 4);
+-      tmp &= 0x0F;
+-      tmp = (tmp + 8) & 0x0F;
+-      tmp = tmp << (ii * 4);
+-      result |= tmp;
+-    }
+-
+-    *reinterpret_cast<uint32_t*>(output_data_dev + linear_idx) = result;
+-  }
++  // no-op for MUSA int4 layout.
+
+-  if (n < total_vec_n) {
+-    const int4* vec_weight_data_ptr =
+-        reinterpret_cast<const int4*>(weight_data);
+-    int2* vec_quanted_weight_data =
+-        reinterpret_cast<int2*>(quanted_weight_data);
+-    AlignedVector<float, VectorSize> abs_max;
+-#pragma unroll
+-    for (int i = 0; i < VectorSize; ++i) {
+-      abs_max[i] = static_cast<float>(0.0f);
+-    }
+-#pragma unroll
+-    for (int k = 0; k < total_k; ++k) {
+-      int64_t linear_index = k * total_vec_n + n;
+-      AlignedVector<T, VectorSize> weight;
+-      *reinterpret_cast<int4*>(&weight) = vec_weight_data_ptr[linear_index];
+-#pragma unroll
+-      for (int i = 0; i < VectorSize; ++i) {
+-        abs_max[i] = fmaxf((abs_max[i]), static_cast<float>(fabsf(weight[i])));
+-      }
+-    }
+-    AlignedVector<ScaleT, VectorSize> scale;
+-#pragma unroll
+-    for (int i = 0; i < VectorSize; ++i) {
+-      scale[i] = static_cast<ScaleT>(abs_max[i] / static_cast<float>(7.0f));
+-    }
+-    *reinterpret_cast<float4*>(scale_data + VectorSize * n) =
+-        *reinterpret_cast<float4*>(&scale);
+-
+-    for (int k = 0; k < total_k / 2; ++k) {
+-      AlignedVector<int8_t, VectorSize> quanted_weight;
+-      for (int packed_idx = 0; packed_idx < 2; ++packed_idx) {
+-        int64_t linear_index = (k * 2 + packed_idx) * total_vec_n + n;
+-        AlignedVector<T, VectorSize> weight;
+-        *reinterpret_cast<int4*>(&weight) =
+-            *reinterpret_cast<const int4*>(vec_weight_data_ptr + linear_index);
+-#pragma unroll
+-        for (int i = 0; i < VectorSize; ++i) {
+-          const float weight_elt =
+-              (static_cast<float>(weight[i]) / static_cast<float>(abs_max[i])) *
+-              static_cast<float>(7.0);
+-          const float scaled_weight = lroundf(weight_elt);
+-          int int_weight = static_cast<int>(scaled_weight);
+-          const int8_t clipped_weight = fmaxf(-7, fminf(7, int_weight));
+-          quanted_weight[i] &= ~(0x0F << (4 * packed_idx));
+-          quanted_weight[i] |= ((clipped_weight & 0x0F) << (4 * packed_idx));
+-        }
+-      }
+-      int64_t linear_index_new = k * total_vec_n + n;
+-      *reinterpret_cast<int2*>(vec_quanted_weight_data + linear_index_new) =
+-          *reinterpret_cast<int2*>(&quanted_weight);
+-    }
+-  }
++  if (n >= total_vec_n) return;
++
++  const int4* vec_weight_data_ptr = reinterpret_cast<const int4*>(weight_data);
++
++  phi::AlignedVector<float, VectorSize> abs_max;
++#pragma unroll
++  for (int i = 0; i < VectorSize; ++i) abs_max[i] = 0.0f;
++
++#pragma unroll
++  for (int k = 0; k < total_k; ++k) {
++    int64_t linear_index = k * total_vec_n + n;
++    phi::AlignedVector<T, VectorSize> w;
++    *reinterpret_cast<int4*>(&w) = vec_weight_data_ptr[linear_index];
++#pragma unroll
++    for (int i = 0; i < VectorSize; ++i) {
++      abs_max[i] = fmaxf(abs_max[i], static_cast<float>(fabsf(w[i])));
++    }
++  }
++
++  phi::AlignedVector<ScaleT, VectorSize> scale;
++#pragma unroll
++  for (int i = 0; i < VectorSize; ++i) {
++    scale[i] = static_cast<ScaleT>(abs_max[i] / 7.0f);
++  }
++  *reinterpret_cast<float4*>(scale_data + VectorSize * n) =
++      *reinterpret_cast<float4*>(&scale);
++
++  int base_n = static_cast<int>(n * VectorSize);
++  int base_n_pair = base_n >> 1;
++
++  for (int k = 0; k < total_k; ++k) {
++    int64_t linear_index = k * total_vec_n + n;
++    phi::AlignedVector<T, VectorSize> w;
++    *reinterpret_cast<int4*>(&w) = vec_weight_data_ptr[linear_index];
++
++    uint8_t q[VectorSize];
++
++#pragma unroll
++    for (int i = 0; i < VectorSize; ++i) {
++      float amax = abs_max[i];
++      int int_weight = 0;
++      if (amax > 0.0f) {
++        float weight_elt = (static_cast<float>(w[i]) / amax) * 7.0f;
++        float scaled = lroundf(weight_elt);
++        int_weight = static_cast<int>(scaled);
++        int_weight = max(-7, min(7, int_weight));
++      } else {
++        int_weight = 0;
++      }
++      q[i] = static_cast<uint8_t>(int_weight) & 0x0F;
++    }
++
++    uint8_t b0 = (uint8_t)((q[0] & 0x0F) | ((q[1] & 0x0F) << 4));
++    uint8_t b1 = (uint8_t)((q[2] & 0x0F) | ((q[3] & 0x0F) << 4));
++    uint8_t b2 = (uint8_t)((q[4] & 0x0F) | ((q[5] & 0x0F) << 4));
++    uint8_t b3 = (uint8_t)((q[6] & 0x0F) | ((q[7] & 0x0F) << 4));
++
++    quanted_weight_data[(base_n_pair + 0) * total_k + k] = (int8_t)b0;
++    quanted_weight_data[(base_n_pair + 1) * total_k + k] = (int8_t)b1;
++    quanted_weight_data[(base_n_pair + 2) * total_k + k] = (int8_t)b2;
++    quanted_weight_data[(base_n_pair + 3) * total_k + k] = (int8_t)b3;
++  }
+
+-  if ((arch == 100) || (arch == 90) || (arch == 89) || (arch == 86) ||
+-      (arch == 80) || (arch == 75)) {
++  if ((arch == 0) || (arch == 100) || (arch == 90) || (arch == 89) ||
++      (arch == 86) || (arch == 80) || (arch == 75)) {
+
+-    if ((arch == 100) || (arch == 90) || (arch == 89) || (arch == 86) ||
+-        (arch == 80) || (arch == 75)) {
++    if ((arch == 0) || (arch == 100) || (arch == 90) || (arch == 89) ||
++        (arch == 86) || (arch == 80) || (arch == 75)) {

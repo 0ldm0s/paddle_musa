@@ -1,0 +1,11 @@
+-#ifdef PADDLE_WITH_HIP
+-  HOSTDEVICE inline explicit operator hipFloatComplex() const {
+-    return make_hipFloatComplex(real, imag);
++#if defined(PADDLE_WITH_MUSA)
++  HOSTDEVICE inline explicit operator muFloatComplex() const {
++    return make_muFloatComplex(real, imag);
+ 
+-  HOSTDEVICE inline explicit operator hipDoubleComplex() const {
+-    return make_hipDoubleComplex(real, imag);
++  HOSTDEVICE inline explicit operator muDoubleComplex() const {
++    return make_muDoubleComplex(real, imag);

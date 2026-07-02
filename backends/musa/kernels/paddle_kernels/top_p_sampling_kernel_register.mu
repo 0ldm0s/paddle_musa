@@ -489,38 +489,6 @@ __global__ void KeMatrixTopPBeamTopKFt(const T* src,
     BlockReduce<T, MaxLength, BlockSize>(
         shared_max, topk, beam_max, &beam, &top_num, &count, tid, wid, lane);
   }
-
-  // const int kMaxIters = 4096;  // pick a number big enough
-  // int it = 0;
-
-  // for (; it < kMaxIters && top_num; ++it) {
-  //   ThreadGetTopK<T, MaxLength, BlockSize>(
-  //       topk,
-  //       &beam,
-  //       TopPBeamTopK,
-  //       src + bid * vocab_size,
-  //       &firststep,
-  //       &is_empty,
-  //       &max,
-  //       vocab_size,
-  //       tid);
-  //   BlockReduce<T, MaxLength, BlockSize>(
-  //       shared_max, topk, beam_max, &beam, &top_num, &count, tid, wid, lane);
-  //   if (it == 0) {
-  //     if (tid == 0) {
-  //       out_id[bid] = -400;
-  //       out_val[bid] = (T)top_num;  // record top_num after first iteration
-  //     }
-  //     return;
-  //   }
-  // }
-
-  // if (tid == 0) {
-  //   out_id[bid] = -200;  
-  //   out_val[bid] = (T)it;
-  // }
-  // return;
-
   if (tid == 0) {
     count_iter_begin[bid] = count_iter[bid];
     float rand_top_p = GPU(rand_uniform)(states + bid) * top_p_num;
@@ -1053,7 +1021,9 @@ void DispatchTopPSampling(const Context& dev_ctx,
 __global__ void setup_kernel(GPU(randState_t) * state,
                              int64_t* seed,
                              const int bs) {
-  int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  int64_t idx =
+      static_cast<int64_t>(blockIdx.x) * static_cast<int64_t>(blockDim.x) +
+      static_cast<int64_t>(threadIdx.x);
   for (int i = idx; i < bs; i += gridDim.x * blockDim.x) {
     GPU(rand_init)(static_cast<uint64_t>(seed[i]), 0, 0, &state[i]);
   }
@@ -1064,7 +1034,9 @@ __global__ void setup_kernel(GPU(randState_t) * state,
                              const uint64_t offset,
                              const int bs,
                              const bool need_batch_random) {
-  int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  int64_t idx =
+      static_cast<int64_t>(blockIdx.x) * static_cast<int64_t>(blockDim.x) +
+      static_cast<int64_t>(threadIdx.x);
   for (int i = idx; i < bs; i += gridDim.x * blockDim.x) {
     if (need_batch_random) {
       GPU(rand_init)(seed, i, offset, &state[i]);
@@ -1095,7 +1067,7 @@ void TopPSamplingKernel(const Context& dev_ctx,
                         const DenseTensor& ps,
                         const paddle::optional<DenseTensor>& threshold,
                         const paddle::optional<DenseTensor>& topp_seed,
-                        int seed,
+                        int64_t seed,
                         int k,
                         const std::string& mode,
                         DenseTensor* out,
@@ -1108,8 +1080,8 @@ void TopPSamplingKernel(const Context& dev_ctx,
   const auto* input = &x;
   // get the input dims
   const auto& in_dims = input->dims();
-  int p_num = ps.numel();
-  int bs = in_dims[0];
+  int64_t p_num = ps.numel();
+  int64_t bs = in_dims[0];
   int vocab_size = in_dims[1];
   T* out_ptr = dev_ctx.template Alloc<T>(out);
   int64_t* ids_ptr = dev_ctx.template Alloc<int64_t>(ids);
@@ -1187,9 +1159,7 @@ void TopPSamplingKernel(const Context& dev_ctx,
 
   T* threshold_data = SafeGetTensorPtr<T>(threshold);
 
-  // Debug to be 20, originally 2
-  constexpr int TopKMaxLength = 20;
-  
+  constexpr int TopKMaxLength = 2;
   constexpr int TopPBeamTopK = 20;
 
   DispatchKeMatrixTopPBeamTopK<T, Context, TopKMaxLength, TopPBeamTopK>(
@@ -1209,9 +1179,6 @@ void TopPSamplingKernel(const Context& dev_ctx,
       bs,
       need_batch_random,
       mode);
-
-  // TODO
-  // return;
 
   size_t temp_storage_bytes = 0;
 

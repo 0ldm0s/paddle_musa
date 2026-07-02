@@ -1,0 +1,35 @@
+# Copyright (c) 2026 Moore Threads Technology Co., Ltd("Moore Threads"). All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import unittest
+
+import numpy as np
+import paddle
+
+
+class TestGridSampleOpMusa(unittest.TestCase):
+    def test_grid_sample_nearest(self):
+        paddle.set_device("musa")
+        x_np = np.arange(4, dtype="float32").reshape([1, 1, 2, 2])
+        grid_np = np.array([[[[-1.0, -1.0], [1.0, -1.0]], [[-1.0, 1.0], [1.0, 1.0]]]], dtype="float32")
+        x = paddle.to_tensor(x_np)
+        grid = paddle.to_tensor(grid_np)
+        out = paddle.nn.functional.grid_sample(
+            x, grid, mode="nearest", padding_mode="zeros", align_corners=True
+        )
+        np.testing.assert_allclose(out.numpy(), x_np, rtol=1e-6, atol=1e-6)
+
+
+if __name__ == "__main__":
+    unittest.main()

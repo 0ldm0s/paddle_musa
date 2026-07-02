@@ -19,12 +19,54 @@
 
 
 #include "paddle/phi/kernels/pool_kernel.h"
+#include "paddle/phi/kernels/reduce_mean_kernel.h"
 #include "paddle/phi/core/kernel_registry.h"
+
+namespace phi {
+
+template <typename T, typename Context>
+void MusaPool2dKernel(const Context& dev_ctx,
+                      const DenseTensor& x,
+                      const IntArray& kernel_size,
+                      const std::vector<int64_t>& strides,
+                      const std::vector<int64_t>& paddings,
+                      bool ceil_mode,
+                      bool exclusive,
+                      const std::string& data_format,
+                      const std::string& pooling_type,
+                      bool global_pooling,
+                      bool adaptive,
+                      const std::string& padding_algorithm,
+                      DenseTensor* out) {
+  if (adaptive && pooling_type == "avg" && !global_pooling &&
+      data_format == "NCHW" && x.dims().size() == 4 &&
+      out->dims().size() == 4 && out->dims()[2] == 1 && out->dims()[3] == 1) {
+    MeanRawKernel<T, Context>(
+        dev_ctx, x, IntArray(std::vector<int64_t>{2, 3}), true, false, out);
+    return;
+  }
+
+  Pool2dKernel<T, Context>(dev_ctx,
+                           x,
+                           kernel_size,
+                           strides,
+                           paddings,
+                           ceil_mode,
+                           exclusive,
+                           data_format,
+                           pooling_type,
+                           global_pooling,
+                           adaptive,
+                           padding_algorithm,
+                           out);
+}
+
+}  // namespace phi
 
 PD_CUSTOM_KERNEL_REGISTER(pool2d,
                    musa,
                    ALL_LAYOUT,
-                   phi::Pool2dKernel,
+                   phi::MusaPool2dKernel,
                    float,
                    double,
                    phi::float16,

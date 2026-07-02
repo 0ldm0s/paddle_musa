@@ -1,0 +1,7 @@
+[
+  {
+    "from": "thrust::cuda::par.on(stream)",
+    "to": "thrust::musa::par.on(stream)",
+    "skip_include": true
+  }
+]

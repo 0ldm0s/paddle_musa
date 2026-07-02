@@ -205,7 +205,8 @@ void* GetMUDNNDsoHandle() {
 }
 
 void* GetMUPTIDsoHandle() {
-  // TODO(someone): implement mupti load
+  return musa_dl_utils::GetDsoHandleFromSearchPath(FLAGS_musa_dir,
+                                                   "libmupti.so");
 }
 void* GetMusolverDsoHandle() {
   // TODO(someone): implement muslover load

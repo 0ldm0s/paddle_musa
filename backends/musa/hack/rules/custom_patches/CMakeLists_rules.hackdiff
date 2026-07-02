@@ -1,0 +1,18 @@
+-if(UNIX AND NOT APPLE)
+-  target_link_libraries(phi_core rt)
+-endif()
++ if(UNIX AND NOT APPLE)
++   target_link_libraries(phi_core rt)
++  set(MUSA_PATH
++    "/usr/local/musa"
++    CACHE PATH "Path to which musa has been installed")
++
++  target_include_directories(phi_core PUBLIC
++      ${MUSA_PATH}/include
++  )
++
++  target_link_libraries(phi_core
++      rt
++      ${MUSA_PATH}/lib/libmusart.so
++  )
++ endif()

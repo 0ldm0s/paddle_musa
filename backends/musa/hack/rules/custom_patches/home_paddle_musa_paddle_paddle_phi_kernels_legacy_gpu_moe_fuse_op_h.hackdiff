@@ -1,0 +1,197 @@
+-                                        const int num_rows,
+-                                        const int num_experts,
+-                                        const int k,
+-                                        cudaStream_t stream) {
+-  static constexpr int WARPS_PER_TB = 4;
+-  static constexpr int TPB = 256;
+-  moe_top_k<T, TPB><<<num_rows, TPB, 0, stream>>>(
++                                        const int num_rows,
++                                        const int num_experts,
++                                        const int k,
++                                        musaStream_t stream) {
++  static constexpr int WARPS_PER_TB = 4;
++  static constexpr int TPB = 256;
++  moe_top_k<T, TPB><<<num_rows, TPB, 0, stream>>>(
+
+-                               const int k,
+-                               const int num_rows,
+-                               const int64_t num_experts,
+-                               const cudaStream_t& stream) {
+-  int max = 1024;
+-  const int threads = std::min(max, num_rows * k);
+-  const int blocks = (num_rows * k + threads - 1) / threads;
++                               const int k,
++                               const int num_rows,
++                               const int64_t num_experts,
++                               const musaStream_t& stream) {
++  int max = 1024;
++  const int threads = std::min(max, num_rows * k);
++  const int blocks = (num_rows * k + threads - 1) / threads;
+
+-                                 const int k,
+-                                 const int num_rows,
+-                                 const int64_t num_experts,
+-                                 const cudaStream_t& stream) {
+-  int max = 1024;
+-  const int threads = std::min(max, num_rows * k);
+-  const int blocks = (num_rows * k + threads - 1) / threads;
++                                 const int k,
++                                 const int num_rows,
++                                 const int64_t num_experts,
++                                 const musaStream_t& stream) {
++  int max = 1024;
++  const int threads = std::min(max, num_rows * k);
++  const int blocks = (num_rows * k + threads - 1) / threads;
+
+-                                      const int total_indices,
+-                                      const int64_t num_experts,
+-                                      int64_t* total_rows_before_expert,
+-                                      const cudaStream_t& stream) {
+-  const int threads = std::min(static_cast<int64_t>(1024), num_experts);
+-  const int blocks = (num_experts + threads - 1) / threads;
+-
++                                      const int total_indices,
++                                      const int64_t num_experts,
++                                      int64_t* total_rows_before_expert,
++                                      const musaStream_t& stream) {
++  const int threads = std::min(static_cast<int64_t>(1024), num_experts);
++  const int blocks = (num_experts + threads - 1) / threads;
++
+
+-    const int k,
+-    const int64_t capacity,
+-    bool use_pad,
+-    cudaStream_t stream) {
+-  const int blocks = num_rows * k;
+-  const int threads = std::min(cols, 1024);
+-  constexpr int max_pack_size = 16 / sizeof(T);
++    const int k,
++    const int64_t capacity,
++    bool use_pad,
++    musaStream_t stream) {
++  const int blocks = num_rows * k;
++  const int threads = std::min(cols, 1024);
++  constexpr int max_pack_size = 16 / sizeof(T);
+
+-    const int64_t capacity,
+-    const int64_t world_size,
+-    const int64_t num_local_experts,
+-    cudaStream_t stream) {
+-  const int loop_size = 2;
+-  const int blocks = (num_rows * k) / loop_size;
+-  assert((num_rows * k) % loop_size == 0);
++    const int64_t capacity,
++    const int64_t world_size,
++    const int64_t num_local_experts,
++    musaStream_t stream) {
++  const int loop_size = 2;
++  const int blocks = (num_rows * k) / loop_size;
++  assert((num_rows * k) % loop_size == 0);
+
+-    const int64_t len,
+-    const int64_t num_experts,
+-    const int64_t capacity,
+-    const cudaStream_t& stream,
+-    const phi::memory_utils::ThrustAllocator<cudaStream_t>& allocator) {
+-  auto ptr = thrust::device_pointer_cast(expert_id);
+-  auto outptr = thrust::device_pointer_cast(sort_buffer);
+-  auto offsetptr = thrust::device_pointer_cast(expert_offset);
+-  const auto& exec_policy = thrust::cuda::par(allocator).on(stream);
+-  thrust::copy(exec_policy, ptr, ptr + len, outptr);
+-  thrust::sort(exec_policy, outptr, outptr + len);
+-  const int threads = std::min(static_cast<int64_t>(1024), num_experts);
++    const int64_t len,
++    const int64_t num_experts,
++    const int64_t capacity,
++    const musaStream_t& stream,
++    const phi::memory_utils::ThrustAllocator<musaStream_t>& allocator) {
++  auto ptr = thrust::device_pointer_cast(expert_id);
++  auto outptr = thrust::device_pointer_cast(sort_buffer);
++  auto offsetptr = thrust::device_pointer_cast(expert_offset);
++  const auto& exec_policy = thrust::musa::par(allocator).on(stream);
++  thrust::copy(exec_policy, ptr, ptr + len, outptr);
++  thrust::sort(exec_policy, outptr, outptr + len);
++  const int threads = std::min(static_cast<int64_t>(1024), num_experts);
+
+-                                        const int num_experts,
+-                                        const int expert_start_index,
+-                                        const int expert_end_index,
+-                                        const cudaStream_t& stream) {
+-  int max = 1024;
+-  const int threads = std::min(max, num_rows * k);
+-  const int blocks = (num_rows * k + threads - 1) / threads;
++                                        const int num_experts,
++                                        const int expert_start_index,
++                                        const int expert_end_index,
++                                        const musaStream_t& stream) {
++  int max = 1024;
++  const int threads = std::min(max, num_rows * k);
++  const int blocks = (num_rows * k + threads - 1) / threads;
+
+-    const int64_t len,
+-    const int64_t num_experts,
+-    const int64_t capacity,
+-    const cudaStream_t& stream,
+-    const phi::memory_utils::ThrustAllocator<cudaStream_t>& allocator) {
+-  auto offset_ptr = thrust::device_pointer_cast(expert_offset);
+-  auto expert_num_ptr = thrust::device_pointer_cast(expert_num);
+-  const auto& exec_policy = thrust::cuda::par(allocator).on(stream);
+-  thrust::fill(
+-      exec_policy, offset_ptr, offset_ptr + num_experts, static_cast<T>(0));
+-
++    const int64_t len,
++    const int64_t num_experts,
++    const int64_t capacity,
++    const musaStream_t& stream,
++    const phi::memory_utils::ThrustAllocator<musaStream_t>& allocator) {
++  auto offset_ptr = thrust::device_pointer_cast(expert_offset);
++  auto expert_num_ptr = thrust::device_pointer_cast(expert_num);
++  const auto& exec_policy = thrust::musa::par(allocator).on(stream);
++  thrust::fill(
++      exec_policy, offset_ptr, offset_ptr + num_experts, static_cast<T>(0));
++
+
+-                                         int64_t expert_start_index,
+-                                         int64_t expert_end_index,
+-                                         bool reverse,
+-                                         const cudaStream_t& stream) {
+-  if (len <= 0) return;
+-  const int64_t threads = std::min(static_cast<int64_t>(1024), len);
+-  const int64_t blocks = (len + threads - 1) / threads;
++                                         int64_t expert_start_index,
++                                         int64_t expert_end_index,
++                                         bool reverse,
++                                         const musaStream_t& stream) {
++  if (len <= 0) return;
++  const int64_t threads = std::min(static_cast<int64_t>(1024), len);
++  const int64_t blocks = (len + threads - 1) / threads;
+
+-    const int64_t capacity,
+-    const int64_t expert_start_index,
+-    bool use_pad,
+-    cudaStream_t stream) {
+-  int max = 1024;
+-  const int threads = std::min(max, num_rows * k);
+-  const int blocks = (num_rows * k + threads - 1) / threads;
++    const int64_t capacity,
++    const int64_t expert_start_index,
++    bool use_pad,
++    musaStream_t stream) {
++  int max = 1024;
++  const int threads = std::min(max, num_rows * k);
++  const int blocks = (num_rows * k + threads - 1) / threads;
+
+-    const int64_t num_rows,  // unpermuted_input_len
+-    const int64_t k,
+-    const int64_t num_cols,
+-    cudaStream_t stream) {
+-  auto blocks = padded_len;
+-  auto threads = std::min(num_cols, static_cast<int64_t>(1024));
+-  constexpr int64_t max_pack_size = 16 / sizeof(T);
++    const int64_t num_rows,  // unpermuted_input_len
++    const int64_t k,
++    const int64_t num_cols,
++    musaStream_t stream) {
++  auto blocks = padded_len;
++  auto threads = std::min(num_cols, static_cast<int64_t>(1024));
++  constexpr int64_t max_pack_size = 16 / sizeof(T);

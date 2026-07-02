@@ -19,6 +19,7 @@
 
 
 #include "paddle/phi/kernels/slice_kernel.h"
+#include "paddle/phi/kernels/impl/slice_kernel_impl.h"
 #include "paddle/phi/core/kernel_registry.h"
 
 PD_CUSTOM_KERNEL_REGISTER(slice,

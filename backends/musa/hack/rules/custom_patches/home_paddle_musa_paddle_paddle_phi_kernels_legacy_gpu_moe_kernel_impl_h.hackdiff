@@ -1,0 +1,97 @@
+- public:
+-  inline CubKeyValueSorter();
+-
+-  inline CubKeyValueSorter(cudaStream_t stream = 0);  // NOLINT
+-
+-  inline explicit CubKeyValueSorter(const int num_experts);
+-
++ public:
++  inline CubKeyValueSorter();
++
++  inline CubKeyValueSorter(musaStream_t stream = 0);  // NOLINT
++
++  inline explicit CubKeyValueSorter(const int num_experts);
++
+
+-                  int* values_out,
+-                  const size_t num_key_value_pairs,
+-                  bool descending,
+-                  cudaStream_t stream);
+-
+- private:
+-  size_t num_key_value_pairs_;
+-  int num_experts_;
+-  int num_bits_;
+-  cudaStream_t stream_;
+-};
+-
+-// ===== CUB Sorting things =====
+-CubKeyValueSorter::CubKeyValueSorter()
+-    : num_experts_(0), num_bits_(sizeof(int) * 8) {}
+-
+-CubKeyValueSorter::CubKeyValueSorter(cudaStream_t stream)
+-    : num_experts_(0), num_bits_(sizeof(int) * 8), stream_(stream) {}
+-
+-CubKeyValueSorter::CubKeyValueSorter(const int num_experts)
++                  int* values_out,
++                  const size_t num_key_value_pairs,
++                  bool descending,
++                  musaStream_t stream);
++
++ private:
++  size_t num_key_value_pairs_;
++  int num_experts_;
++  int num_bits_;
++  musaStream_t stream_;
++};
++
++// ===== CUB Sorting things =====
++CubKeyValueSorter::CubKeyValueSorter()
++    : num_experts_(0), num_bits_(sizeof(int) * 8) {}
++
++CubKeyValueSorter::CubKeyValueSorter(musaStream_t stream)
++    : num_experts_(0), num_bits_(sizeof(int) * 8), stream_(stream) {}
++
++CubKeyValueSorter::CubKeyValueSorter(const int num_experts)
+
+-                                   int* values_out,
+-                                   const size_t num_key_value_pairs,
+-                                   bool descending,
+-                                   cudaStream_t stream) {
+-  size_t expected_ws_size = getWorkspaceSize(num_key_value_pairs);
+-  size_t actual_ws_size = workspace_size;
+-
++                                   int* values_out,
++                                   const size_t num_key_value_pairs,
++                                   bool descending,
++                                   musaStream_t stream) {
++  size_t expected_ws_size = getWorkspaceSize(num_key_value_pairs);
++  size_t actual_ws_size = workspace_size;
++
+
+-template <>
+-inline void CubKeyValueSorter::run(void* workspace,
+-                                   const size_t workspace_size,
+-                                   const __nv_bfloat16* keys_in,
+-                                   __nv_bfloat16* keys_out,
+-                                   const int* values_in,
+-                                   int* values_out,
+-                                   const size_t num_key_value_pairs,
+-                                   bool descending,
+-                                   cudaStream_t stream) {}
+-
+-// CubKeyValueSorter sorter_(stream);
+-
++template <>
++inline void CubKeyValueSorter::run(void* workspace,
++                                   const size_t workspace_size,
++                                   const __mt_bfloat16* keys_in,
++                                   __mt_bfloat16* keys_out,
++                                   const int* values_in,
++                                   int* values_out,
++                                   const size_t num_key_value_pairs,
++                                   bool descending,
++                                   musaStream_t stream) {}
++
++// CubKeyValueSorter sorter_(stream);
++

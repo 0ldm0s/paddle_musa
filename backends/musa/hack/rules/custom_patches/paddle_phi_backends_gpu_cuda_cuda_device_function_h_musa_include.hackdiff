@@ -1,0 +1,9 @@
+-#pragma once
++#pragma once
++#ifdef PADDLE_WITH_MUSA
++#include "musa_device_function.h"
++#else
+
+-}  // namespace phi
++}  // namespace phi
++#endif

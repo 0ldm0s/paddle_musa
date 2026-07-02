@@ -1,0 +1,462 @@
+-  }
+-}
+-
+-template <typename T, int64_t vec_size>
+-__global__ void gather_with_mask_kernel(
+-    const T* dy,                   // [s*k, d]
++  }
++}
++
++template <typename T, int VecSize>
++__global__ void gather_with_mask_permute_rowwise_kernel(
++    const T* dy,                   // [permuted_tokens, d]
++    const int* scatter_index,      // [s, k]
++    const float* combine_weights,  // [s, k]
++    T* dx,                         // [s, d]
++    int64_t num_rows,              // s
++    int64_t k,                     // k
++    int64_t dim,                   // d
++    int64_t num_active,
++    int64_t capacity,
++    int64_t world_size,
++    int64_t num_local_experts,
++    int64_t blocks_per_row) {
++  extern __shared__ char shared_buf[];
++  int* scatter_index_shared = reinterpret_cast<int*>(shared_buf);
++  float* combine_weights_shared =
++      reinterpret_cast<float*>(scatter_index_shared + k);
++
++  int64_t block_id = static_cast<int64_t>(blockIdx.x);
++  int64_t row = block_id / blocks_per_row;
++  int64_t tile_id = block_id % blocks_per_row;
++
++  if (row >= num_rows) {
++    return;
++  }
++
++  for (int64_t i = threadIdx.x; i < k; i += blockDim.x) {
++    scatter_index_shared[i] = scatter_index[row * k + i];
++    combine_weights_shared[i] = combine_weights[row * k + i];
++  }
++  __syncthreads();
++
++  int64_t di_begin =
++      (tile_id * blockDim.x + threadIdx.x) * static_cast<int64_t>(VecSize);
++  if (di_begin >= dim) {
++    return;
++  }
++
++  phi::AlignedVector<T, VecSize> out_vec;
++  for (int i = 0; i < VecSize; ++i) {
++    out_vec[i] = static_cast<T>(0);
++  }
++
++  for (int64_t i = 0; i < k; ++i) {
++    int64_t id = static_cast<int64_t>(scatter_index_shared[i]);
++    if (num_active >= 0 && id >= num_active) {
++      continue;
++    }
++    if (id < 0) {
++      continue;
++    }
++    if (combine_weights_shared[i] <= 0.f) {
++      continue;
++    }
++
++    int64_t remaining_after_irank = id % (num_local_experts * capacity);
++    int64_t irank = id / (num_local_experts * capacity);
++    int64_t local_iexpert = remaining_after_irank / capacity;
++    int64_t row_in_expert = remaining_after_irank % capacity;
++
++    int64_t permuted_id =
++        local_iexpert * (world_size * capacity) + irank * capacity + row_in_expert;
++
++    int64_t in_offset = permuted_id * dim + di_begin;
++
++    if constexpr (VecSize == 4) {
++      phi::AlignedVector<T, VecSize> in_vec;
++      phi::Load<T, VecSize>(dy + in_offset, &in_vec);
++      for (int j = 0; j < VecSize; ++j) {
++        out_vec[j] += in_vec[j];
++      }
++    } else {
++      out_vec[0] += dy[in_offset];
++    }
++  }
++
++  int64_t out_offset = row * dim + di_begin;
++  if constexpr (VecSize == 4) {
++    phi::Store<T, VecSize>(out_vec, dx + out_offset);
++  } else {
++    dx[out_offset] = out_vec[0];
++  }
++}
++
++template <typename T, int64_t vec_size>
++__global__ void gather_with_mask_kernel(
++    const T* dy,                   // [s*k, d]
+
+-  }
+-}
+-
+-template <typename T>
+-void gather_with_mask_launcher(const T* dy,                   // [s*k, d]
+-                               const int* scatter_index,      // [s, k]
+-                               const float* combine_weights,  // [s, k]
+-                               T* dx,                         // [s,k,d]
+-                               int64_t num_rows,              // s
+-                               int64_t k,                     // k
+-                               int64_t dim,                   // d
+-                               int64_t num_active,
+-                               cudaStream_t stream,
+-                               bool use_all2all_permute = false,
+-                               int64_t world_size = -1,
+-                               int64_t num_local_experts = -1,
+-                               int64_t capacity = -1) {
+-  int64_t numel = num_rows * dim;
+-
+-  int64_t threads = 512;
+-  if (dim % 4 == 0) {
+-    int64_t blocks = DivUp<int64_t>(DivUp<int64_t>(numel, 4), threads);
+-    int64_t s_shared_num = max_shared_s_num(num_rows, dim, threads, 4);
+-    size_t shared_size = k * s_shared_num * (sizeof(int) + sizeof(float));
+-
+-    if (!use_all2all_permute) {
+-      gather_with_mask_kernel<T, 4>
+-          <<<blocks, threads, shared_size, stream>>>(dy,
+-                                                     scatter_index,
+-                                                     combine_weights,
+-                                                     dx,
+-                                                     num_rows,
+-                                                     k,
+-                                                     dim,
+-                                                     numel,
+-                                                     num_active,
+-                                                     s_shared_num);
+-    } else {
+-      PD_CHECK(world_size > 0 && num_local_experts > 0 && capacity > 0);
+-      gather_with_mask_permute_kernel<T, 4>
+-          <<<blocks, threads, shared_size, stream>>>(dy,
+-                                                     scatter_index,
+-                                                     combine_weights,
+-                                                     dx,
+-                                                     num_rows,
+-                                                     k,
+-                                                     dim,
+-                                                     numel,
+-                                                     num_active,
+-                                                     s_shared_num,
+-                                                     capacity,
+-                                                     world_size,
+-                                                     num_local_experts);
+-    }
+-  } else {
+-    int64_t blocks = DivUp<int64_t>(DivUp<int64_t>(numel, 1), threads);
+-    int64_t s_shared_num = max_shared_s_num(num_rows, dim, threads, 1);
+-    size_t shared_size = k * s_shared_num * (sizeof(int) + sizeof(float));
+-
+-#ifdef DEBUG_MOE_OP
+-    std::cerr
+-        << "[DEBUG-BWD] gather_with_mask without vectorized, s_shared_num="
+-        << s_shared_num << ", block=" << blocks << std::endl;
+-#endif
+-
+-    if (!use_all2all_permute) {
+-      gather_with_mask_kernel<T, 1>
+-          <<<blocks, threads, shared_size, stream>>>(dy,
+-                                                     scatter_index,
+-                                                     combine_weights,
+-                                                     dx,
+-                                                     num_rows,
+-                                                     k,
+-                                                     dim,
+-                                                     numel,
+-                                                     num_active,
+-                                                     s_shared_num);
+-    } else {
+-      gather_with_mask_permute_kernel<T, 1>
+-          <<<blocks, threads, shared_size, stream>>>(dy,
+-                                                     scatter_index,
+-                                                     combine_weights,
+-                                                     dx,
+-                                                     num_rows,
+-                                                     k,
+-                                                     dim,
+-                                                     numel,
+-                                                     num_active,
+-                                                     s_shared_num,
+-                                                     capacity,
+-                                                     world_size,
+-                                                     num_local_experts);
+-    }
+-  }
+-}
+-
++  }
++}
++
++template <typename T>
++__global__ void gather_with_mask_naive_kernel(
++    const T* dy,                   // [s*k, d]
++    const int* scatter_index,      // [s, k]
++    const float* combine_weights,  // [s, k]
++    T* dx,                         // [s, d]
++    int64_t num_rows,              // s
++    int64_t k,                     // k
++    int64_t dim,                   // d
++    int64_t num_active) {
++  extern __shared__ char shared_buf[];
++  int* scatter_index_shared = reinterpret_cast<int*>(shared_buf);
++  float* combine_weights_shared =
++      reinterpret_cast<float*>(scatter_index_shared + k);
++
++  int64_t linear_idx =
++      static_cast<int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
++  int64_t total = num_rows * dim;
++  if (linear_idx >= total) {
++    return;
++  }
++
++  int64_t si = linear_idx / dim;
++  int64_t di = linear_idx % dim;
++  int64_t base = si * k;
++
++  int64_t row_start = static_cast<int64_t>(blockIdx.x) * blockDim.x;
++  int64_t row_end = row_start + blockDim.x - 1;
++  int64_t row_start_si = row_start / dim;
++  int64_t row_end_si = min(row_end, total - 1) / dim;
++
++  T out = static_cast<T>(0);
++
++  if (row_start_si == row_end_si) {
++    for (int64_t i = threadIdx.x; i < k; i += blockDim.x) {
++      scatter_index_shared[i] = scatter_index[base + i];
++      combine_weights_shared[i] = combine_weights[base + i];
++    }
++    __syncthreads();
++
++    for (int64_t i = 0; i < k; ++i) {
++      int id = scatter_index_shared[i];
++      if (num_active >= 0 && id >= num_active) {
++        continue;
++      }
++      if (id < 0) {
++        continue;
++      }
++      if (combine_weights_shared[i] > 0.f) {
++        out += dy[static_cast<int64_t>(id) * dim + di];
++      }
++    }
++  } else {
++    for (int64_t i = 0; i < k; ++i) {
++      int id = scatter_index[base + i];
++      if (num_active >= 0 && id >= num_active) {
++        continue;
++      }
++      if (id < 0) {
++        continue;
++      }
++      if (combine_weights[base + i] > 0.f) {
++        out += dy[static_cast<int64_t>(id) * dim + di];
++      }
++    }
++  }
++
++  dx[linear_idx] = out;
++}
++
++template <typename T, int VecSize>
++__global__ void gather_with_mask_rowwise_kernel(
++    const T* dy,                   // [s*k, d]
++    const int* scatter_index,      // [s, k]
++    const float* combine_weights,  // [s, k]
++    T* dx,                         // [s, d]
++    int64_t num_rows,              // s
++    int64_t k,                     // k
++    int64_t dim,                   // d
++    int64_t num_active,
++    int64_t blocks_per_row) {
++  extern __shared__ char shared_buf[];
++  int* scatter_index_shared = reinterpret_cast<int*>(shared_buf);
++  float* combine_weights_shared =
++      reinterpret_cast<float*>(scatter_index_shared + k);
++
++  int64_t block_id = static_cast<int64_t>(blockIdx.x);
++  int64_t row = block_id / blocks_per_row;
++  int64_t tile_id = block_id % blocks_per_row;
++
++  if (row >= num_rows) {
++    return;
++  }
++
++  for (int64_t i = threadIdx.x; i < k; i += blockDim.x) {
++    scatter_index_shared[i] = scatter_index[row * k + i];
++    combine_weights_shared[i] = combine_weights[row * k + i];
++  }
++  __syncthreads();
++
++  int64_t di_begin =
++      (tile_id * blockDim.x + threadIdx.x) * static_cast<int64_t>(VecSize);
++  if (di_begin >= dim) {
++    return;
++  }
++
++  phi::AlignedVector<T, VecSize> out_vec;
++  for (int i = 0; i < VecSize; ++i) {
++    out_vec[i] = static_cast<T>(0);
++  }
++
++  for (int64_t i = 0; i < k; ++i) {
++    int id = scatter_index_shared[i];
++    if (num_active >= 0 && id >= num_active) {
++      continue;
++    }
++    if (id < 0) {
++      continue;
++    }
++    if (combine_weights_shared[i] <= 0.f) {
++      continue;
++    }
++
++    int64_t in_offset = static_cast<int64_t>(id) * dim + di_begin;
++
++    if constexpr (VecSize == 4) {
++      phi::AlignedVector<T, VecSize> in_vec;
++      phi::Load<T, VecSize>(dy + in_offset, &in_vec);
++      for (int j = 0; j < VecSize; ++j) {
++        out_vec[j] += in_vec[j];
++      }
++    } else {
++      out_vec[0] += dy[in_offset];
++    }
++  }
++
++  int64_t out_offset = row * dim + di_begin;
++  if constexpr (VecSize == 4) {
++    phi::Store<T, VecSize>(out_vec, dx + out_offset);
++  } else {
++    dx[out_offset] = out_vec[0];
++  }
++}
++
++template <typename T>
++void gather_with_mask_launcher(const T* dy,                   // [s*k, d]
++                               const int* scatter_index,      // [s, k]
++                               const float* combine_weights,  // [s, k]
++                               T* dx,                         // [s, d]
++                               int64_t num_rows,              // s
++                               int64_t k,                     // k
++                               int64_t dim,                   // d
++                               int64_t num_active,
++                               musaStream_t stream,
++                               bool use_all2all_permute = false,
++                               int64_t world_size = -1,
++                               int64_t num_local_experts = -1,
++                               int64_t capacity = -1) {
++  int64_t numel = num_rows * dim;
++
++  if (!use_all2all_permute) {
++    int threads = 256;
++    size_t shared_size = k * (sizeof(int) + sizeof(float));
++
++    if (dim % 4 == 0) {
++      int64_t elems_per_block = static_cast<int64_t>(threads) * 4;
++      int64_t blocks_per_row = (dim + elems_per_block - 1) / elems_per_block;
++      int64_t blocks = num_rows * blocks_per_row;
++
++      gather_with_mask_rowwise_kernel<T, 4>
++          <<<static_cast<int>(blocks), threads, shared_size, stream>>>(
++              dy,
++              scatter_index,
++              combine_weights,
++              dx,
++              num_rows,
++              k,
++              dim,
++              num_active,
++              blocks_per_row);
++    } else {
++      int64_t elems_per_block = static_cast<int64_t>(threads);
++      int64_t blocks_per_row = (dim + elems_per_block - 1) / elems_per_block;
++      int64_t blocks = num_rows * blocks_per_row;
++
++      gather_with_mask_rowwise_kernel<T, 1>
++          <<<static_cast<int>(blocks), threads, shared_size, stream>>>(
++              dy,
++              scatter_index,
++              combine_weights,
++              dx,
++              num_rows,
++              k,
++              dim,
++              num_active,
++              blocks_per_row);
++    }
++    return;
++  }
++
++  int64_t threads = 512;
++  if (dim % 4 == 0) {
++    PD_CHECK(world_size > 0 && num_local_experts > 0 && capacity > 0);
++
++    int threads = 256;
++    int64_t elems_per_block = static_cast<int64_t>(threads) * 4;
++    int64_t blocks_per_row = (dim + elems_per_block - 1) / elems_per_block;
++    int64_t blocks = num_rows * blocks_per_row;
++    size_t shared_size = k * (sizeof(int) + sizeof(float));
++
++    gather_with_mask_permute_rowwise_kernel<T, 4>
++        <<<static_cast<int>(blocks), threads, shared_size, stream>>>(
++            dy,
++            scatter_index,
++            combine_weights,
++            dx,
++            num_rows,
++            k,
++            dim,
++            num_active,
++            capacity,
++            world_size,
++            num_local_experts,
++            blocks_per_row);
++  } else {
++    PD_CHECK(world_size > 0 && num_local_experts > 0 && capacity > 0);
++
++    int threads = 256;
++    int64_t elems_per_block = static_cast<int64_t>(threads);
++    int64_t blocks_per_row = (dim + elems_per_block - 1) / elems_per_block;
++    int64_t blocks = num_rows * blocks_per_row;
++    size_t shared_size = k * (sizeof(int) + sizeof(float));
++
++    gather_with_mask_permute_rowwise_kernel<T, 1>
++        <<<static_cast<int>(blocks), threads, shared_size, stream>>>(
++            dy,
++            scatter_index,
++            combine_weights,
++            dx,
++            num_rows,
++            k,
++            dim,
++            num_active,
++            capacity,
++            world_size,
++            num_local_experts,
++            blocks_per_row);
++  }
++}
++
+
+-                                  int64_t num_rows,          // s
+-                                  int64_t k,                 // k
+-                                  int64_t num_experts,       // e
+-                                  cudaStream_t stream) {
+-  int blocks = num_rows;
+-  int threads = 1024;
+-
++                                  int64_t num_rows,          // s
++                                  int64_t k,                 // k
++                                  int64_t num_experts,       // e
++                                  musaStream_t stream) {
++  int blocks = num_rows;
++  int threads = 1024;
++

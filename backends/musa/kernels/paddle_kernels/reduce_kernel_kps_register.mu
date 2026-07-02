@@ -32,6 +32,7 @@
 #include "paddle/phi/kernels/reduce_max_kernel.h"
 #include "paddle/phi/kernels/reduce_mean_kernel.h"
 #include "paddle/phi/kernels/reduce_min_kernel.h"
+#include "paddle/phi/kernels/reduce_nansum_kernel.h"
 #include "paddle/phi/kernels/reduce_sum_kernel.h"
 
 using complex64 = phi::complex64;
@@ -207,6 +208,41 @@ void SumRawKernel(const Context& dev_ctx,
         dev_ctx, x, reduce_all, dims.GetData(), keep_dim, out_dtype, out);
   }
 }
+
+template <typename T, typename Context>
+void NansumKernel(const Context& dev_ctx,
+                  const DenseTensor& x,
+                  const IntArray& dims,
+                  DataType out_dtype,
+                  bool keep_dim,
+                  DenseTensor* out) {
+  if (out_dtype == DataType::UNDEFINED && out->dtype() != x.dtype()) {
+    out_dtype = out->dtype();
+  }
+
+  if (x.numel() == 0) {
+    dev_ctx.template Alloc<T>(out);
+    if (out_dtype == DataType::INT64) {
+      FullKernel<int64_t, Context>(
+          dev_ctx,
+          phi::IntArray(common::vectorize(out->dims())),
+          0,
+          out_dtype,  // not used
+          out);
+    } else {
+      FullKernel<T, Context>(dev_ctx,
+                             phi::IntArray(common::vectorize(out->dims())),
+                             0,
+                             out_dtype,  // not used
+                             out);
+    }
+    return;
+  }
+
+  bool reduce_all = recompute_reduce_all(x, dims);
+  phi::Reduce<T, kps::NansumOps>(
+      dev_ctx, x, reduce_all, dims.GetData(), out_dtype, out);
+}
 }  // namespace phi
 
 using float16 = phi::float16;
@@ -260,6 +296,20 @@ PD_CUSTOM_KERNEL_REGISTER(any_raw,
   kernel->OutputAt(0).SetDataType(phi::DataType::BOOL);
 }
 
+PD_CUSTOM_KERNEL_REGISTER(any,
+                   musa,
+                   ALL_LAYOUT,
+                   phi::AnyKernel,
+                   float,
+                   double,
+                   int,
+                   int64_t,
+                   bool,
+                   complex64,
+                   complex128) {
+  kernel->OutputAt(0).SetDataType(phi::DataType::BOOL);
+}
+
 PD_CUSTOM_KERNEL_REGISTER(max,
                    musa,
                    ALL_LAYOUT,
@@ -272,6 +322,40 @@ PD_CUSTOM_KERNEL_REGISTER(max,
                    phi::bfloat16,
                    phi::float8_e4m3fn,
                    phi::float8_e5m2) {}
+
+PD_CUSTOM_KERNEL_REGISTER(prod,
+                   musa,
+                   ALL_LAYOUT,
+                   phi::ProdKernel,
+                   float,
+                   double,
+                   int,
+                   int64_t,
+                   phi::float16,
+                   phi::bfloat16,
+                   phi::complex64,
+                   phi::complex128) {
+  kernel->InputAt(1).SetBackend(phi::Backend::ALL_BACKEND);
+}
+
+PD_CUSTOM_KERNEL_REGISTER(nansum,
+                   musa,
+                   ALL_LAYOUT,
+                   phi::NansumKernel,
+                   bool,
+                   float,
+                   double,
+                   float16,
+                   bfloat16,
+                   int8_t,
+                   uint8_t,
+                   int16_t,
+                   int,
+                   int64_t,
+                   complex64,
+                   complex128) {
+  kernel->OutputAt(0).SetDataType(phi::DataType::UNDEFINED);
+}
 
 PD_CUSTOM_KERNEL_REGISTER(mean_raw,
                    musa,
@@ -318,15 +402,3 @@ PD_CUSTOM_KERNEL_REGISTER(sum_raw,
   kernel->OutputAt(0).SetDataType(phi::DataType::UNDEFINED);
 }
 
-PD_CUSTOM_KERNEL_REGISTER(prod,
-                   musa,
-                   ALL_LAYOUT,
-                   phi::ProdKernel,
-                   float,
-                   double,
-                   int,
-                   int64_t,
-                   phi::float16,
-                   phi::bfloat16,
-                   phi::complex64,
-                   phi::complex128) {}

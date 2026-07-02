@@ -1,0 +1,9 @@
+-#pragma once
++#pragma once
++
++#ifdef __MUSACC__
++#include <musa_runtime.h>
++#endif
+
+-#if (defined(__CUDACC__) || defined(__HIPCC__) || defined(__xpu__))
++#if (defined(__MUSACC__) || defined(__HIPCC__) || defined(__xpu__))

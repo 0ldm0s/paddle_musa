@@ -22,6 +22,7 @@ namespace cub = hipcub;
 
 #include "glog/logging.h"
 
+#include "kernels/kernels_utils.h"
 #include "musa_context.h"
 #include "paddle/common/flags.h"
 #include "paddle/common/layout.h"
@@ -53,6 +54,18 @@ template <typename T>
 using CudnnDataType = phi::backends::gpu::CudnnDataType<T>;
 template <typename T>
 using BatchNormParamType = typename CudnnDataType<T>::BatchNormParamType;
+
+template <typename T>
+static __global__ void VarianceToInvVariance(const BatchNormParamType<T>* variance,
+                                             int C,
+                                             double epsilon,
+                                             BatchNormParamType<T>* inv_variance) {
+  int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  if (idx < C) {
+    inv_variance[idx] = static_cast<BatchNormParamType<T>>(
+        1.0 / sqrt(static_cast<double>(variance[idx]) + epsilon));
+  }
+}
 
 template <typename T, phi::DataLayout layout>
 static __global__ void BNForwardInference(const T *x,
@@ -909,6 +922,53 @@ void BatchNormKernel(const Context &dev_ctx,
       double this_factor = 1. - momentum;
 #if defined(PADDLE_WITH_HIP)||  defined(PADDLE_WITH_MUSA)
       this_factor = momentum;
+#if defined(PADDLE_WITH_MUSA)
+      if (compute_format == DataLayout::kNCHW && (N * H * W * D) >= 32) {
+        phi::Copy(dev_ctx, mean, dev_ctx.GetPlace(), false, mean_out);
+        phi::Copy(dev_ctx, variance, dev_ctx.GetPlace(), false, variance_out);
+
+        auto& h = GetMudnnHandle<Context>(dev_ctx);
+        auto x_mt = CreateMUTensor(transformed_x);
+        auto y_mt = CreateMUTensor(transformed_y);
+        auto mean_mt = CreateMUTensor(*mean_out);
+        auto variance_mt = CreateMUTensor(*variance_out);
+        auto saved_mean_mt = CreateMUTensor(*saved_mean);
+        DenseTensor raw_saved_variance =
+            phi::Empty<BatchNormParamType<T>, Context>(dev_ctx, {C});
+        auto raw_saved_variance_mt = CreateMUTensor(raw_saved_variance);
+        auto scale_mt = CreateMUTensor(new_scale);
+        auto bias_mt = CreateMUTensor(new_bias);
+
+        ::musa::dnn::BatchNorm bn;
+        MUDNN_CHECK(bn.SetMode(::musa::dnn::BatchNorm::Mode::PER_CHANNEL),
+                    "SetMode");
+        MUDNN_CHECK(bn.SetEpsilon(epsilon), "SetEpsilon");
+        MUDNN_CHECK(bn.SetTraining(true), "SetTraining");
+        auto place = dev_ctx.GetPlace();
+        ::musa::dnn::MemoryMaintainer maintainer =
+            [place](size_t bytes) { return PaddleInternalMemAlloc(bytes, place); };
+        MUDNN_CHECK(bn.RunComposite(h,
+                                    y_mt,
+                                    x_mt,
+                                    mean_mt,
+                                    variance_mt,
+                                    saved_mean_mt,
+                                    raw_saved_variance_mt,
+                                    scale_mt,
+                                    bias_mt,
+                                    1.0 - static_cast<double>(momentum),
+                                    maintainer),
+                    "Run Mudnn BatchNorm Fwd");
+        const int threads = 256;
+        const int blocks = (C + threads - 1) / threads;
+        VarianceToInvVariance<T><<<blocks, threads, 0, dev_ctx.stream()>>>(
+            raw_saved_variance.template data<BatchNormParamType<T>>(),
+            C,
+            epsilon,
+            saved_variance->template data<BatchNormParamType<T>>());
+      } else
+#endif
+      {
       const int num = transformed_x.numel();
       const int block = 256;
       const int max_threads = dev_ctx.GetMaxPhysicalThreadCount();
@@ -946,6 +1006,7 @@ void BatchNormKernel(const Context &dev_ctx,
                 variance_out->template data<BatchNormParamType<T>>(),
                 saved_mean->template data<BatchNormParamType<T>>(),
                 saved_variance->template data<BatchNormParamType<T>>());
+      }
       }
 
 #else
@@ -1224,6 +1285,41 @@ void BatchNormKernel(const Context &dev_ctx,
 #endif
 }
 
+template <typename T, typename Context>
+void BatchNormInferKernel(const Context& dev_ctx,
+                          const DenseTensor& x,
+                          const DenseTensor& mean,
+                          const DenseTensor& variance,
+                          const DenseTensor& scale,
+                          const DenseTensor& bias,
+                          float momentum,
+                          float epsilon,
+                          const std::string& data_layout,
+                          DenseTensor* y,
+                          DenseTensor* mean_out,
+                          DenseTensor* variance_out) {
+  auto saved_mean = EmptyLike<T, Context>(dev_ctx, *mean_out);
+  auto saved_variance = EmptyLike<T, Context>(dev_ctx, *variance_out);
+  BatchNormKernel<T, Context>(dev_ctx,
+                              x,
+                              mean,
+                              variance,
+                              scale,
+                              bias,
+                              /*is_test=*/true,
+                              momentum,
+                              epsilon,
+                              data_layout,
+                              /*use_global_stats=*/false,
+                              /*trainable_statistics=*/false,
+                              y,
+                              mean_out,
+                              variance_out,
+                              &saved_mean,
+                              &saved_variance,
+                              /*reserve_space=*/nullptr);
+}
+
 }  // namespace phi
 
 PD_CUSTOM_KERNEL_REGISTER(batch_norm,
@@ -1242,4 +1338,20 @@ PD_CUSTOM_KERNEL_REGISTER(batch_norm,
   kernel->OutputAt(2).SetDataType(phi::DataType::FLOAT32);
   kernel->OutputAt(3).SetDataType(phi::DataType::FLOAT32);
   kernel->OutputAt(4).SetDataType(phi::DataType::FLOAT32);
+}
+
+PD_CUSTOM_KERNEL_REGISTER(batch_norm_infer,
+                          musa,
+                          ALL_LAYOUT,
+                          phi::BatchNormInferKernel,
+                          float,
+                          double,
+                          phi::bfloat16,
+                          phi::float16) {
+  kernel->InputAt(1).SetDataType(phi::DataType::FLOAT32);
+  kernel->InputAt(2).SetDataType(phi::DataType::FLOAT32);
+  kernel->InputAt(3).SetDataType(phi::DataType::FLOAT32);
+  kernel->InputAt(4).SetDataType(phi::DataType::FLOAT32);
+  kernel->OutputAt(1).SetDataType(phi::DataType::FLOAT32);
+  kernel->OutputAt(2).SetDataType(phi::DataType::FLOAT32);
 }

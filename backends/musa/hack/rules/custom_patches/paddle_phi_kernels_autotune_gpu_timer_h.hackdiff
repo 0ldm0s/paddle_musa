@@ -1,0 +1,2 @@
+-static void CUDART_CB RecordEventTimerCallback(cudaStream_t stream,
++static void RecordEventTimerCallback(cudaStream_t stream,

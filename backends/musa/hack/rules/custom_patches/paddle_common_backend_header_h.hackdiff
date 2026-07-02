@@ -1,0 +1,7 @@
+-#pragma once
++#pragma once
++#if defined(__MUSACC__)
++#define PADDLE_MUSA_BF16
++#include <musa.h>
++#include <musa_bf16.h>
++#endif

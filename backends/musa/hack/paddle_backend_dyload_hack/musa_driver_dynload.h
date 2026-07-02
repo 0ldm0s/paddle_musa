@@ -67,9 +67,31 @@ extern bool HasCUDADriver();
   __macro(muDeviceGetAttribute);                        \
   __macro(muDeviceGet);
 
+#define MUSA_ROUTINE_EACH_VMM(__macro)             \
+  __macro(muMemGetAllocationGranularity);          \
+  __macro(muMemAddressReserve);                    \
+  __macro(muMemCreate);                            \
+  __macro(muMemMap);                               \
+  __macro(muMemSetAccess);                         \
+  __macro(muMemUnmap);                             \
+  __macro(muMemRelease);                           \
+  __macro(muMemAddressFree);                       \
+  __macro(muMemExportToShareableHandle);           \
+  __macro(muMemGetAllocationPropertiesFromHandle); \
+  __macro(muMemImportFromShareableHandle)
+
+#define MUSA_ROUTINE_EACH_MUSA_GRAPH(__macro) \
+  __macro(muGraphNodeGetType);                \
+  __macro(muGraphKernelNodeGetParams);        \
+  __macro(muGraphExecKernelNodeSetParams)
+
+
 MUSA_ROUTINE_EACH(DECLARE_DYNAMIC_LOAD_MUSA_WRAP);
+MUSA_ROUTINE_EACH_VMM(DECLARE_DYNAMIC_LOAD_MUSA_WRAP);
+MUSA_ROUTINE_EACH_MUSA_GRAPH(DECLARE_DYNAMIC_LOAD_MUSA_WRAP);
 
 #undef DECLARE_DYNAMIC_LOAD_MUSA_WRAP
 
 }  // namespace dynload
 }  // namespace phi
+

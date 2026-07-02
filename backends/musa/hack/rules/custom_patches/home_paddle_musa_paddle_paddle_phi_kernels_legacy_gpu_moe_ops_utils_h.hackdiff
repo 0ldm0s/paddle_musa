@@ -1,0 +1,39 @@
+-
+-namespace phi {
+-
+-namespace details {
+-// --------      getWorkspaceSize      -------- //
+-template <typename KeyT>
++
++namespace phi {
++
++#define CUDACHECK(cmd)                          \
++  do {                                          \
++    cudaError_t e = cmd;                        \
++    if (e != cudaSuccess) {                     \
++      printf("Failed: Cuda error %s:%d '%s'\n", \
++             __FILE__,                          \
++             __LINE__,                          \
++             cudaGetErrorString(e));            \
++      exit(EXIT_FAILURE);                       \
++    }                                           \
++  } while (0)
++
++namespace details {
++// --------      getWorkspaceSize      -------- //
++template <typename KeyT>
+
+-                 int64_t *expert_offset,
+-                 int *expert_id,
+-                 bool use_pad,
+-                 cudaStream_t stream) {
+-  phi::CubKeyValueSorter sorter(stream);
+-
+-  DenseTensor xpanded_source_row_to_expanded_dest_row_tensor =
++                 int64_t *expert_offset,
++                 int *expert_id,
++                 bool use_pad,
++                 musaStream_t stream) {
++  phi::CubKeyValueSorter sorter(stream);
++
++  DenseTensor xpanded_source_row_to_expanded_dest_row_tensor =

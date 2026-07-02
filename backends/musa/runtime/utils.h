@@ -14,20 +14,25 @@
 // limitations under the License.
 #pragma once
 
-#include <glog/logging.h>
-#include <mccl.h>
-#include <musa.h>
-#include <musa_runtime.h>
-
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <iostream>
 #include <mutex>
 #include <optional>
+#include <vector>
+#include <cassert>
+
+#include <glog/logging.h>
+#include <mccl.h>
+#include <musa.h>
+#include <musa_runtime.h>
+#include <mupti.h>
 
 #include "paddle/common/exception.h"
 #include "paddle/phi/backends/device_ext.h"
+#include "paddle/phi/api/profiler/trace_event.h"
+#include "paddle/phi/api/profiler/trace_event_collector.h"
 
 namespace musa {
 
@@ -58,10 +63,10 @@ namespace musa {
 
 #if defined(PADDLE_WITH_MCCL)
 
-static std::string GetMcclVer() {
-  static std::once_flag mcclGetVersionFlag;
-  static std::string versionString;
-  std::call_once(mcclGetVersionFlag, []() {
+static ::std::string GetMcclVer() {
+  static ::std::once_flag mcclGetVersionFlag;
+  static ::std::string versionString;
+  ::std::call_once(mcclGetVersionFlag, []() {
     int version = 0;
     mcclResult_t status = mcclGetVersion(&version);
     if (status != mcclSuccess || version < 100) {
@@ -72,22 +77,22 @@ static std::string GetMcclVer() {
       int mcclMajor = version / majorBase;
       int mcclMinor = (version % majorBase) / minorBase;
       int mcclPatch = version % minorBase;
-      versionString = std::to_string(mcclMajor) + "." +
-                      std::to_string(mcclMinor) + "." +
-                      std::to_string(mcclPatch);
+      versionString = ::std::to_string(mcclMajor) + "." +
+                      ::std::to_string(mcclMinor) + "." +
+                      ::std::to_string(mcclPatch);
     }
   });
   return versionString;
 }
 
-extern inline std::string McclGetErrorWithVersion(mcclResult_t error) {
-  return std::string(mcclGetErrorString(error)) + ", MCCL version " +
+extern inline ::std::string McclGetErrorWithVersion(mcclResult_t error) {
+  return ::std::string(mcclGetErrorString(error)) + ", MCCL version " +
          GetMcclVer();
 }
 
-extern inline std::string GetMcclErrorDetailStr(
-    mcclResult_t error, std::optional<std::string> processGroupFailureReason) {
-  if (processGroupFailureReason != std::nullopt) {
+extern inline ::std::string GetMcclErrorDetailStr(
+    mcclResult_t error, ::std::optional<::std::string> processGroupFailureReason) {
+  if (processGroupFailureReason != ::std::nullopt) {
     return *processGroupFailureReason;
   }
   return McclGetErrorWithVersion(error);
@@ -97,9 +102,9 @@ extern inline std::string GetMcclErrorDetailStr(
   do {                                                                        \
     mcclResult_t result = cmd;                                                \
     if (result != mcclSuccess) {                                              \
-      std::string err =                                                       \
-          "MCCL error at: " + std::string(__FILE__) + ":" +                   \
-          std::to_string(__LINE__) + ", " + McclGetErrorWithVersion(result) + \
+      ::std::string err =                                                       \
+          "MCCL error at: " + ::std::string(__FILE__) + ":" +                   \
+          ::std::to_string(__LINE__) + ", " + McclGetErrorWithVersion(result) + \
           "\n" +                                                              \
           GetMcclErrorDetailStr(result, "call mccl failed at paddle-musa");   \
       PD_CHECK(false, err);                                                   \
@@ -111,7 +116,7 @@ extern inline std::string GetMcclErrorDetailStr(
   do {                                                   \
     mcclResult_t result = cmd;                           \
     if (result != mcclSuccess) {                         \
-      std::string err = McclGetErrorWithVersion(result); \
+      ::std::string err = McclGetErrorWithVersion(result); \
       fprintf(stderr,                                    \
               "[Error] MCCL error at: %s:%d, %s\n",      \
               __FILE__,                                  \
@@ -133,5 +138,16 @@ DECLARE_TYPE_FOR_MUSA(gpuDeviceProp, musaDeviceProp);
 // DECLARE_TYPE_FOR_GPU(dnnDataType_t, musaDataType_t);
 
 #endif  // PADDLE_WITH_MUSA
+
+#define MUPTI_CHECK(cmd)                                                     \
+  do {                                                                       \
+    MUptiResult _status = cmd;                                               \
+    if (_status != MUPTI_SUCCESS) {                                          \
+      const char* errstr;                                                    \
+      muptiGetResultString(_status, &errstr);                                \
+      LOG(ERROR) << "call " << #cmd << " failed with error " << errstr; \
+      exit(-1);                                                              \
+    }                                                                        \
+  } while (0)
 
 }  // namespace musa

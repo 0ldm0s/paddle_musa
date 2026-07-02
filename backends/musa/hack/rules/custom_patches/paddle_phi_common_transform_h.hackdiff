@@ -1,0 +1,6 @@
+-#include "thrust/device_ptr.h"
+-#endif
++#include "thrust/device_ptr.h"
++#include <thrust_hack.h>
++#endif
++

@@ -1,0 +1,22 @@
+-      // vanilla norm
+-      using MT = typename MPTypeTrait<T>::Type;
+-      funcs::ReduceGpuKernel<T, T, kps::GenericPNormOps>(
+-          dev_ctx, *in_x, out_norm, reduce_axis, porder);
++      // vanilla norm
++#if defined(__MUSACC__)
++      if constexpr (std::is_same_v<T, double>) {
++        funcs::ReduceKernel<T, T, kps::AddFunctor, UnsignedPowFunctor<T>>(
++            dev_ctx, *in_x, out_norm, UnsignedPowFunctor<T>(porder), reduce_axis);
++
++        const DenseTensor* tmp_norm = out_norm;
++        std::vector<const DenseTensor*> ins = {tmp_norm};
++        std::vector<DenseTensor*> outs = {out_norm};
++        funcs::ElementwiseKernel<T>(
++            dev_ctx, ins, &outs, UnsignedPowFunctor<T>(1. / porder));
++      } else
++#endif
++      {
++        using MT = typename MPTypeTrait<T>::Type;
++        funcs::ReduceGpuKernel<T, T, kps::GenericPNormOps>(
++            dev_ctx, *in_x, out_norm, reduce_axis, porder);
++      }

@@ -1,0 +1,242 @@
+-#ifdef PADDLE_WITH_CUDA
+-#include <cuda.h>
+-#include <curand_kernel.h>
+-#endif
+-#ifdef PADDLE_WITH_HIP
+-#include <hip/hip_runtime.h>
+-#include <hiprand_kernel.h>
+-#endif
+-
++#include <musa.h>
++#include <murand_kernel.h>
+
+-  HOSTDEVICE inline void operator()(T* dst, const float* rand, int num) const {
+-    static constexpr int kCount =
+-        funcs::uniform_distribution<float>::kReturnsCount;
++  HOSTDEVICE inline void operator()(T* dst, const float* rand, int num) const {
++    static constexpr int kCount =
++        phi::funcs::uniform_distribution<float>::kReturnsCount;
+
+-  size_t idx = static_cast<size_t>(BLOCK_ID_X * BLOCK_NUM_X);
+-  static constexpr int kCount =
+-      funcs::uniform_distribution<float>::kReturnsCount;
+-  size_t stride = BLOCK_NUM_X * GRID_NUM_X * kCount;
+-#ifdef PADDLE_WITH_HIP
+-  hiprandStatePhilox4_32_10_t state;
+-  hiprand_init(seed, idx + THREAD_ID_X, increment, &state);
+-  using SType = hiprandStatePhilox4_32_10_t;
+-#else
+-  curandStatePhilox4_32_10_t state;
+-  curand_init(seed, idx + THREAD_ID_X, increment, &state);
+-  using SType = curandStatePhilox4_32_10_t;
+-#endif
+-  T dst_mask[kCount *
+-             2];  // 0 ~ kCount - 1 : dst,  kCount ~ 2 * kCount - 1: mask
+-  float rands[kCount];
+-  uint8_t mask_result[kCount];
+-  using Rand = funcs::uniform_distribution<float>;
++  size_t idx = static_cast<size_t>(BLOCK_ID_X * BLOCK_NUM_X);
++  static constexpr int kCount =
++      phi::funcs::uniform_distribution<float>::kReturnsCount;
++  size_t stride = BLOCK_NUM_X * GRID_NUM_X * kCount;
++  murandStatePhilox4_32_10_t state;
++  murand_init(seed, idx + THREAD_ID_X, increment, &state);
++  using SType = murandStatePhilox4_32_10_t;
++  T dst_mask[kCount *
++             2];  // 0 ~ kCount - 1 : dst,  kCount ~ 2 * kCount - 1: mask
++  float rands[kCount];
++  uint8_t mask_result[kCount];
++  using Rand = phi::funcs::uniform_distribution<float>;
+
+-  // Vectorized Generate Mask
+-  // kCount is 4 for curand_uniform4 is used
+-  if (seed_ptr) seed = seed_ptr[0];
+-
+-  constexpr int kCount = funcs::uniform_distribution<float>::kReturnsCount;
++  // Vectorized Generate Mask
++  // kCount is 4 for curand_uniform4 is used
++  if (seed_ptr) seed = seed_ptr[0];
++
++  constexpr int kCount = phi::funcs::uniform_distribution<float>::kReturnsCount;
+
+-    const GPUContext& dev_ctx,
++    const phi::GPUContext& dev_ctx,
+
+-    const DenseTensor& x,
+-    const DenseTensor* seed,
+-    DenseTensor* mask,
+-    DenseTensor* y,
++    const phi::DenseTensor& x,
++    const phi::DenseTensor* seed,
++    phi::DenseTensor* mask,
++    phi::DenseTensor* y,
+
+-#ifdef PADDLE_WITH_HIP
+-      PADDLE_ENFORCE_GPU_SUCCESS(
+-          hipMemsetAsync(y_data, 0, x_numel * sizeof(T), stream));
+-      PADDLE_ENFORCE_GPU_SUCCESS(
+-          hipMemsetAsync(mask_data, 0, x_numel * sizeof(*mask_data), stream));
+-#else
+-      PADDLE_ENFORCE_GPU_SUCCESS(
+-          cudaMemsetAsync(y_data, 0, x_numel * sizeof(T), stream));
+-      PADDLE_ENFORCE_GPU_SUCCESS(
+-          cudaMemsetAsync(mask_data, 0, x_numel * sizeof(*mask_data), stream));
+-#endif
++      PADDLE_ENFORCE_GPU_SUCCESS(
++          musaMemsetAsync(y_data, 0, x_numel * sizeof(T), stream));
++      PADDLE_ENFORCE_GPU_SUCCESS(
++          musaMemsetAsync(mask_data, 0, x_numel * sizeof(*mask_data), stream));
+
+-    constexpr int kVecSize = funcs::uniform_distribution<float>::kReturnsCount;
+-
+-    size_t grid_size;
+-    size_t block_size;
+-    size_t offset;
+-
+-    if (funcs::IsDeterministicRNG()) {
+-      auto cfg = funcs::GetDeterministicRNGConfig(x_numel, kVecSize);
+-      grid_size = cfg.grid_size;
+-      block_size = cfg.block_size;
+-      offset = cfg.increment;
+-    } else {
+-      auto gpu_config =
+-          phi::backends::gpu::GetGpuLaunchConfig1D(dev_ctx, x_numel, kVecSize);
+-      grid_size = gpu_config.GetGridSize();
+-      block_size = gpu_config.GetBlockSize();
+-
+-      int64_t device_id = dev_ctx.GetPlace().GetDeviceId();
+-      const auto& prop = phi::backends::gpu::GetDeviceProperties(device_id);
+-      size_t max_grid_size = prop.maxThreadsPerMultiProcessor *
+-                             prop.multiProcessorCount / block_size;
+-      grid_size = std::min(grid_size, max_grid_size);
+-
+-      offset =
+-          ((x_numel - 1) / (grid_size * block_size * kVecSize) + 1) * kVecSize;
+-    }
+-
++    constexpr int kVecSize =
++        phi::funcs::uniform_distribution<float>::kReturnsCount;
++    auto gpu_config =
++        phi::backends::gpu::GetGpuLaunchConfig1D(dev_ctx, x_numel, kVecSize);
++    size_t grid_size = gpu_config.GetGridSize();
++    size_t block_size = gpu_config.GetBlockSize();
++
++    int64_t device_id = dev_ctx.GetPlace().GetDeviceId();
++    const auto& prop = phi::backends::gpu::GetDeviceProperties(device_id);
++    size_t max_grid_size = prop.maxThreadsPerMultiProcessor *
++                           prop.multiProcessorCount / block_size;
++    grid_size = std::min(grid_size, max_grid_size);
++
++    auto offset =
++        ((x_numel - 1) / (grid_size * block_size * kVecSize) + 1) * kVecSize;
+
+-      std::vector<const DenseTensor*> ins = {&x, mask};
+-      std::vector<DenseTensor*> outs = {y};
+-      funcs::BroadcastKernel<T>(dev_ctx, ins, &outs, dst_functor);
++      std::vector<const phi::DenseTensor*> ins = {&x, mask};
++      std::vector<phi::DenseTensor*> outs = {y};
++      phi::funcs::BroadcastKernel<T>(dev_ctx, ins, &outs, dst_functor);
+
+-      const GPUContext* dev_ctx_p = &dev_ctx;
+-      auto gen_cuda = dev_ctx.GetGenerator();
+-      auto state_index = gen_cuda->GetStateIndex();
+-
+-      phi::backends::gpu::CUDAGraphNodeLauncher::parameterSetter_t
+-          parameterSetter = [offset, dev_ctx_p, state_index, is_fix_seed](
+-                                phi::backends::gpu::gpuKernelParams& params) {
+-            if (!is_fix_seed) {
+-              // we assume seed is null pointer
+-              // seed copy to cpu is meaningless here
+-              auto gen_cuda = dev_ctx_p->GetGenerator();
+-              // ensure the generator use correct state index
+-              gen_cuda->SetStateIndex(state_index);
+-
+-              uint64_t seed, increment;
+-              std::tie(seed, increment) = gen_cuda->IncrementOffset(offset);
+-
+-              params.As<uint64_t>(2) = seed;
+-              params.As<uint64_t>(8) = increment;
+-
+-              VLOG(10) << "CUDA_GRAPH seed = " << seed
+-                       << ", increment = " << increment;
+-            }
+-          };
+-
+-      phi::backends::gpu::CUDAGraphNodeLauncher::gpuKernelCallback_t
+-          cudaKernelCallback = [=](unsigned int id) {
+-            void* functionPtr =
+-                reinterpret_cast<void*>(&(VectorizedRandomGenerator<T>));
+-#ifdef PADDLE_WITH_HIP
+-            hipFunction_t cudaFunc =
+-                reinterpret_cast<hipFunction_t>(functionPtr);
+-#else
+-            cudaFunction_t cudaFunc;
+-            PADDLE_ENFORCE_GPU_SUCCESS(
+-                cudaGetFuncBySymbol(&cudaFunc, functionPtr));
+-#endif
+-            VLOG(10) << "[cudaKernelCallback] cudaFunc = " << cudaFunc
+-                     << " functionPtr = " << functionPtr;
+-
+-            VectorizedRandomGenerator<T>
+-                <<<grid_size, block_size, 0, stream>>>(id,
+-                                                       size,
+-                                                       seed_data,
+-                                                       dropout_prob,
+-                                                       x_data,
+-                                                       mask_data,
+-                                                       y_data,
+-                                                       upscale_in_train,
+-                                                       increment,
+-                                                       main_offset);
+-            return cudaFunc;
+-          };
+-      phi::backends::gpu::CUDAGraphNodeLauncher::Instance().KernelNodeLaunch(
+-          parameterSetter, cudaKernelCallback);
+-
+-      VLOG(10) << "NON_CUDA_GRAPH seed = " << seed_data
+-               << ", increment = " << increment;
++      VectorizedRandomGenerator<T>
++          <<<grid_size, block_size, 0, stream>>>(0,
++                                                 size,
++                                                 seed_data,
++                                                 dropout_prob,
++                                                 x_data,
++                                                 mask_data,
++                                                 y_data,
++                                                 upscale_in_train,
++                                                 increment,
++                                                 main_offset);
+
+-      phi::ScaleKernel<T, GPUContext>(dev_ctx, x, factor, 0.0f, false, y);
++      phi::ScaleKernel<T, phi::GPUContext>(dev_ctx, x, factor, 0.0f, false, y);
+
+-void DropoutGradGPUKernelDriver(const GPUContext& dev_ctx,
++void DropoutGradGPUKernelDriver(const phi::GPUContext& dev_ctx,
+
+-                                const DenseTensor& grad_y,
+-                                const DenseTensor& mask,
+-                                DenseTensor* grad_x,
++                                const phi::DenseTensor& grad_y,
++                                const phi::DenseTensor& mask,
++                                phi::DenseTensor* grad_x,
+
+-    phi::ScaleKernel<T, GPUContext>(
++    phi::ScaleKernel<T, phi::GPUContext>(
+
+-#ifdef PADDLE_WITH_HIP
+-      hipMemset(grad_x->data<T>(), 0, grad_x->numel() * sizeof(T));
+-#else
+-      cudaMemset(grad_x->data<T>(), 0, grad_x->numel() * sizeof(T));
+-#endif
++      musaMemset(grad_x->data<T>(), 0, grad_x->numel() * sizeof(T));
+
+-      std::vector<const DenseTensor*> ins = {&grad_y, &mask};
+-      std::vector<DenseTensor*> outs = {grad_x};
++      std::vector<const phi::DenseTensor*> ins = {&grad_y, &mask};
++      std::vector<phi::DenseTensor*> outs = {grad_x};
+
+-        funcs::BroadcastKernel<T>(
++        phi::funcs::BroadcastKernel<T>(
+
+-        funcs::ElementwiseKernel<T>(
++        phi::funcs::ElementwiseKernel<T>(

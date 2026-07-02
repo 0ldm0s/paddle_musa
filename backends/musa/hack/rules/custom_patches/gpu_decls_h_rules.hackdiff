@@ -1,0 +1,21 @@
+-#ifdef PADDLE_WITH_HIP
+-#define DECLARE_TYPE_FOR_GPU(GPU_TYPE, CUDA_TYPE, ROCM_TYPE) \
+-  using GPU_TYPE = ROCM_TYPE;
++#if defined(PADDLE_WITH_MUSA)
++#define DECLARE_TYPE_FOR_GPU(GPU_TYPE, MUSA_TYPE) \
++  using GPU_TYPE = MUSA_TYPE;
+ 
+-DECLARE_TYPE_FOR_GPU(gpuStream_t, cudaStream_t, hipStream_t);
+-DECLARE_TYPE_FOR_GPU(gpuEvent_t, cudaEvent_t, hipEvent_t);
++#ifndef PADDLE_WITH_MUSA
++DECLARE_TYPE_FOR_GPU(gpuStream_t, cudaStream_t, hipStream_t);
++DECLARE_TYPE_FOR_GPU(gpuEvent_t, cudaEvent_t, hipEvent_t);
++#else
++DECLARE_TYPE_FOR_GPU(gpuStream_t, musaStream_t);
++DECLARE_TYPE_FOR_GPU(gpuEvent_t, musaEvent_t);
++DECLARE_TYPE_FOR_GPU(dnnHandle_t, mudnnHandle_t);
++DECLARE_TYPE_FOR_GPU(blasHandle_t, mublasHandle_t);
++DECLARE_TYPE_FOR_GPU(blasLtHandle_t, mublasLtHandle_t);
++DECLARE_TYPE_FOR_GPU(solverHandle_t, musolverDnHandle_t);
++DECLARE_TYPE_FOR_GPU(sparseHandle_t, musparseHandle_t);
++#endif

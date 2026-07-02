@@ -1,0 +1,12 @@
+-  #if defined(EIGEN_USE_HIP)
+-    #include <hip/hip_runtime.h>
+-  #else
+-    #include <cuda_runtime.h>
+-  #endif
++  #if defined(EIGEN_USE_HIP)
++    #include <hip/hip_runtime.h>
++  #elif defined(EIGEN_USE_MUSA)
++    #include <musa_runtime.h>
++  #else
++    #include <cuda_runtime.h>
++  #endif

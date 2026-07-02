@@ -1,0 +1,12 @@
+-#define COMPAT_LOG log
+-#define COMPAT_POW pow
+-#define COMPAT_SQRT sqrt
++#define COMPAT_EXP exp
++#define COMPAT_CEIL ceil
++#define COMPAT_FLOOR floor
++#define COMPAT_LOG log
++#define COMPAT_POW pow
++#define COMPAT_SQRT sqrt
++#define COMPAT_TAN tan
++#define COMPAT_ABS abs
++#define COMPAT_LOG1P log1p

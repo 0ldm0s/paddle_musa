@@ -1,0 +1,83 @@
+-#else
+-             LOG(ERROR) << string::Sprintf(
+-                 "Cannot use GPU because you have installed CPU version "
+-                 "PaddlePaddle.\n"
+-                 "If you want to use GPU, please try to install GPU version "
+-                 "PaddlePaddle by: pip install paddlepaddle-gpu\n"
+-                 "If you only have CPU, please change CUDAPlace(%d) to be "
+-                 "CPUPlace().\n",
+-                 dev_id);
+-              PADDLE_THROW(::common::errors::InvalidArgument(
+-            "use wrong place, Please check."));
+-#endif
++#elif defined(PADDLE_WITH_CUSTOM_DEVICE)
++             const std::string device_type = "musa";
++             if (LIKELY(phi::DeviceManager::HasDeviceType(device_type) &&
++                        phi::DeviceManager::IsCustom(device_type) &&
++                        dev_id >= 0 &&
++                        dev_id < static_cast<int>(
++                                     phi::DeviceManager::GetDeviceCount(
++                                         device_type)))) {
++               new (&self) GPUPlace(dev_id);
++             } else {
++               PADDLE_THROW(::common::errors::InvalidArgument(
++                   "use wrong place, Please check."));
++             }
++#else
++             LOG(ERROR) << string::Sprintf(
++                 "Cannot use GPU because you have installed CPU version "
++                 "PaddlePaddle.\n"
++                 "If you want to use GPU, please try to install GPU version "
++                 "PaddlePaddle by: pip install paddlepaddle-gpu\n"
++                 "If you only have CPU, please change CUDAPlace(%d) to be "
++                 "CPUPlace().\n",
++                 dev_id);
++              PADDLE_THROW(::common::errors::InvalidArgument(
++            "use wrong place, Please check."));
++#endif
+
+-#if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
+-  m.def("is_float16_supported", [](const GPUPlace &place) -> bool {
+-  // Only GPUs with Compute Capability >= 53 support float16
+-#ifdef PADDLE_WITH_HIP
+-    return true;
+-#else
+-    return platform::GetGPUComputeCapability(place.device) >= 53;
+-#endif
+-  });
+-  m.def("is_bfloat16_supported", [](const GPUPlace &place) -> bool {
+-  // Only GPUs with Compute Capability >= 80 support bfloat16
+-#ifdef PADDLE_WITH_HIP
+-    return true;
+-#else
+-    return platform::GetGPUComputeCapability(place.device) >= 80;
+-#endif
+-  });
+-#endif
++#if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
++  m.def("is_float16_supported", [](const GPUPlace &place) -> bool {
++  // Only GPUs with Compute Capability >= 53 support float16
++#ifdef PADDLE_WITH_HIP
++    return true;
++#else
++    return platform::GetGPUComputeCapability(place.device) >= 53;
++#endif
++  });
++  m.def("is_bfloat16_supported", [](const GPUPlace &place) -> bool {
++  // Only GPUs with Compute Capability >= 80 support bfloat16
++#ifdef PADDLE_WITH_HIP
++    return true;
++#else
++    return platform::GetGPUComputeCapability(place.device) >= 80;
++#endif
++  });
++#elif defined(PADDLE_WITH_CUSTOM_DEVICE)
++  m.def("is_float16_supported", [](const GPUPlace &place) -> bool {
++    return phi::DeviceManager::IsFloat16Supported(
++        phi::CustomPlace("musa", place.device));
++  });
++  m.def("is_bfloat16_supported", [](const GPUPlace &place) -> bool {
++    return phi::DeviceManager::IsBFloat16Supported(
++        phi::CustomPlace("musa", place.device));
++  });
++#endif

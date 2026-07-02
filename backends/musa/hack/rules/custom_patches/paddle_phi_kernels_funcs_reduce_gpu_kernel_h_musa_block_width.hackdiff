@@ -1,0 +1,15 @@
+-    block_width =
+-        std::min(dim0_pow2, static_cast<int>(max_num_threads / block_height));
+-    num_threads = block_width * block_height;
++    block_width =
++        std::min(dim0_pow2, static_cast<int>(max_num_threads / block_height));
++#if defined(__MUSACC__)
++    block_width = std::min(block_width, WARP_SIZE);
++#endif
++    num_threads = block_width * block_height;
+
+-  bool split_across_warps = config.ValuesPerThread() >= warp_split_threshold;
++  bool split_across_warps = config.ValuesPerThread() >= warp_split_threshold;
++#if defined(__MUSACC__)
++  split_across_warps = split_across_warps && block_height > 1;
++#endif

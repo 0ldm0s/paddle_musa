@@ -163,6 +163,74 @@ class TestLogSoftmaxUT(unittest.TestCase):
                     f"(rtol={rtol}, atol={atol})"
                 )
 
+    def test_mobile_net_v3_class_dim_1000(self):
+        self._run_case(shape=(8, 1000), axis=-1, dtype="float32", rtol=1e-6, atol=1e-6)
+
+    def test_backward_mobile_net_v3_class_dim_1000(self):
+        shape = (4, 1000)
+        axis = -1
+        x_np = (np.random.randn(*shape) * 1.7).astype(np.float32)
+        w_np = np.random.randn(*shape).astype(np.float32)
+
+        x = paddle.to_tensor(x_np, stop_gradient=False)
+        w = paddle.to_tensor(w_np)
+
+        y = F.log_softmax(x, axis=axis)
+        loss = paddle.sum(y * w)
+        loss.backward()
+        grad_pd = x.grad.numpy().astype(np.float64)
+
+        sum_axis = np.sum(grad_pd, axis=axis)
+        np.testing.assert_allclose(
+            sum_axis, np.zeros_like(sum_axis),
+            rtol=0.0, atol=2e-5,
+            err_msg="analytic property failed: sum(grad, axis) != 0"
+        )
+
+    def test_ppocrv5_server_rec_dim_6629_cpu_compare(self):
+        shape = (2, 6629)
+        axis = 1
+        x_np = (np.random.randn(*shape) * 1.7).astype(np.float32)
+        w_np = np.random.randn(*shape).astype(np.float32)
+
+        paddle.set_device("cpu")
+        x_cpu = paddle.to_tensor(x_np, stop_gradient=False)
+        w_cpu = paddle.to_tensor(w_np)
+        y_cpu = F.log_softmax(x_cpu, axis=axis)
+        loss_cpu = paddle.sum(y_cpu * w_cpu)
+        loss_cpu.backward()
+        y_cpu_np = y_cpu.numpy()
+        grad_cpu_np = x_cpu.grad.numpy()
+
+        paddle.set_device("musa")
+        x_musa = paddle.to_tensor(x_np, stop_gradient=False)
+        w_musa = paddle.to_tensor(w_np)
+        y_musa = F.log_softmax(x_musa, axis=axis)
+        loss_musa = paddle.sum(y_musa * w_musa)
+        loss_musa.backward()
+        y_musa_np = y_musa.numpy()
+        grad_musa_np = x_musa.grad.numpy()
+
+        self.assertTrue(np.isfinite(y_musa_np).all(), "found NaN/Inf in MUSA output")
+        self.assertTrue(np.isfinite(grad_musa_np).all(), "found NaN/Inf in MUSA grad")
+        assert_allclose(
+            y_musa_np, y_cpu_np,
+            rtol=1e-6, atol=1e-6,
+            msg="dim=6629 forward mismatch between MUSA and CPU"
+        )
+        assert_allclose(
+            grad_musa_np, grad_cpu_np,
+            rtol=5e-6, atol=1e-6,
+            msg="dim=6629 backward mismatch between MUSA and CPU"
+        )
+
+        sum_axis = np.sum(grad_musa_np.astype(np.float64), axis=axis)
+        np.testing.assert_allclose(
+            sum_axis, np.zeros_like(sum_axis),
+            rtol=0.0, atol=2e-5,
+            err_msg="analytic property failed: sum(grad, axis) != 0"
+        )
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

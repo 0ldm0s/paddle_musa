@@ -1,0 +1,30 @@
+// Copyright (c) 2026 Moore Threads Technology Co., Ltd("Moore Threads"). All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#include "hack/cuda_hack/common_porting.h"
+#include <thrust/system/musa/execution_policy.h>
+namespace thrust {
+namespace cuda = musa;
+}  // namespace thrust
+#include "paddle/phi/kernels/sparse/gpu/elementwise_kernel.cu"
+#include "paddle/phi/core/kernel_registry.h"
+
+PD_CUSTOM_KERNEL_REGISTER(add_coo_coo, musa, ALL_LAYOUT, phi::sparse::ElementWiseAddCooKernel, float, double, int16_t, int, int64_t, phi::float16, phi::complex64, phi::complex128) {
+  kernel->InputAt(0).SetDataLayout(phi::DataLayout::SPARSE_COO);
+  kernel->InputAt(1).SetDataLayout(phi::DataLayout::SPARSE_COO);
+}
+
+PD_CUSTOM_KERNEL_REGISTER(add_coo_dense, musa, ALL_LAYOUT, phi::sparse::ElementWiseAddDenseKernel, float, double, int, int64_t, phi::float16, phi::complex64, phi::complex128) {
+  kernel->InputAt(0).SetDataLayout(phi::DataLayout::SPARSE_COO);
+}

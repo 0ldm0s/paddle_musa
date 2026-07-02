@@ -1,0 +1,173 @@
+-static inline void CalcMatrixSigmaAndNormWeight(const Context& dev_ctx,
+-                                                DenseTensor* weight,
+-                                                DenseTensor* u,
+-                                                DenseTensor* v,
+-                                                DenseTensor* sigma,
+-                                                const int power_iters,
+-                                                const float eps) {
+-  auto& place = *dev_ctx.eigen_device();
+-  auto blas = funcs::GetBlas<Context, T>(dev_ctx);
+-  auto sigma_t = EigenTensor<T, 2>::From(*sigma);
+-  auto weight_t = EigenTensor<T, 2>::From(*weight);
+-  auto u_t = EigenTensor<T, 2>::From(*u);
+-  auto v_t = EigenTensor<T, 2>::From(*v);
+-
+-  const int64_t h = weight->dims()[0];
+-  const int64_t w = weight->dims()[1];
+-
+-  for (int i = 0; i < power_iters; i++) {
+-    // V = W^T * U / ||W^T * U||_2
+-    blas.MatMul(*weight, true, *u, false, T(1), v, T(0));
+-    auto v_t_norm =
+-        v_t.square().sum().sqrt().eval().reshape(Array1(1)).broadcast(
+-            Array1(w));
+-    v_t.device(place) = v_t / (v_t_norm + v_t_norm.constant(eps));
+-    // U = W^T * V / ||W^T * V||_2
+-    blas.MatMul(*weight, false, *v, false, T(1), u, T(0));
+-    auto u_t_norm =
+-        u_t.square().sum().sqrt().eval().reshape(Array1(1)).broadcast(
+-            Array1(h));
+-    u_t.device(place) = u_t / (u_t_norm + u_t_norm.constant(eps));
+-  }
+-  DenseTensor weight_v;
+-  weight_v.Resize({h, 1});
+-  dev_ctx.template Alloc<T>(&weight_v);
+-  blas.MatMul(*weight, false, *v, false, T(1), &weight_v, T(0));
+-  auto weight_v_t = EigenTensor<T, 2>::From(weight_v);
+-  sigma_t.device(place) = (u_t * weight_v_t)
+-                              .sum()
+-                              .eval()
+-                              .reshape(Array2(1, 1))
+-                              .broadcast(Array2(h, w));
+-  weight_t.device(place) = weight_t / sigma_t;
+-}
++static inline void CalcMatrixSigmaAndNormWeight(const Context& dev_ctx,
++                                                DenseTensor* weight,
++                                                DenseTensor* u,
++                                                DenseTensor* v,
++                                                DenseTensor* sigma,
++                                                const int power_iters,
++                                                const float eps) {
++  auto& place = *dev_ctx.eigen_device();
++  auto blas = funcs::GetBlas<Context, T>(dev_ctx);
++
++  const int h = static_cast<int>(weight->dims()[0]);
++  const int w = static_cast<int>(weight->dims()[1]);
++
++  DenseTensor v_norm_sq, v_norm, v_denom, v_new;
++  DenseTensor u_norm_sq, u_norm, u_denom, u_new;
++  DenseTensor weight_v, sigma_scalar, sigma_mat;
++
++  v_norm_sq.Resize({1, 1});
++  v_norm.Resize({1, 1});
++  v_denom.Resize({w, 1});
++  v_new.Resize({w, 1});
++
++  u_norm_sq.Resize({1, 1});
++  u_norm.Resize({1, 1});
++  u_denom.Resize({h, 1});
++  u_new.Resize({h, 1});
++
++  weight_v.Resize({h, 1});
++  sigma_scalar.Resize({1, 1});
++  sigma_mat.Resize({h, w});
++
++  dev_ctx.template Alloc<T>(&v_norm_sq);
++  dev_ctx.template Alloc<T>(&v_norm);
++  dev_ctx.template Alloc<T>(&v_denom);
++  dev_ctx.template Alloc<T>(&v_new);
++
++  dev_ctx.template Alloc<T>(&u_norm_sq);
++  dev_ctx.template Alloc<T>(&u_norm);
++  dev_ctx.template Alloc<T>(&u_denom);
++  dev_ctx.template Alloc<T>(&u_new);
++
++  dev_ctx.template Alloc<T>(&weight_v);
++  dev_ctx.template Alloc<T>(&sigma_scalar);
++  dev_ctx.template Alloc<T>(&sigma_mat);
++
++  auto v_norm_sq_t = EigenTensor<T, 2>::From(v_norm_sq);
++  auto v_norm_t = EigenTensor<T, 2>::From(v_norm);
++  auto v_denom_t = EigenTensor<T, 2>::From(v_denom);
++  auto v_new_t = EigenTensor<T, 2>::From(v_new);
++  auto v_t = EigenTensor<T, 2>::From(*v);
++
++  auto u_norm_sq_t = EigenTensor<T, 2>::From(u_norm_sq);
++  auto u_norm_t = EigenTensor<T, 2>::From(u_norm);
++  auto u_denom_t = EigenTensor<T, 2>::From(u_denom);
++  auto u_new_t = EigenTensor<T, 2>::From(u_new);
++  auto u_t = EigenTensor<T, 2>::From(*u);
++
++  auto weight_t = EigenTensor<T, 2>::From(*weight);
++  auto weight_v_t = EigenTensor<T, 2>::From(weight_v);
++  auto sigma_scalar_t = EigenTensor<T, 2>::From(sigma_scalar);
++  auto sigma_mat_t = EigenTensor<T, 2>::From(sigma_mat);
++
++  for (int i = 0; i < power_iters; ++i) {
++    blas.MatMul(*weight, true, *u, false, T(1), v, T(0));
++    dev_ctx.Wait();
++
++    blas.MatMul(*v, true, *v, false, T(1), &v_norm_sq, T(0));
++    dev_ctx.Wait();
++
++    v_norm_t.device(place) = v_norm_sq_t.sqrt();
++    dev_ctx.Wait();
++
++    v_denom_t.device(place) =
++        (v_norm_t + v_norm_t.constant(static_cast<T>(eps)))
++            .broadcast(Array2(w, 1));
++    dev_ctx.Wait();
++
++    v_new_t.device(place) = v_t / v_denom_t;
++    dev_ctx.Wait();
++
++    Copy(dev_ctx, v_new, dev_ctx.GetPlace(), true, v);
++    dev_ctx.Wait();
++
++    blas.MatMul(*weight, false, *v, false, T(1), u, T(0));
++    dev_ctx.Wait();
++
++    blas.MatMul(*u, true, *u, false, T(1), &u_norm_sq, T(0));
++    dev_ctx.Wait();
++
++    u_norm_t.device(place) = u_norm_sq_t.sqrt();
++    dev_ctx.Wait();
++
++    u_denom_t.device(place) =
++        (u_norm_t + u_norm_t.constant(static_cast<T>(eps)))
++            .broadcast(Array2(h, 1));
++    dev_ctx.Wait();
++
++    u_new_t.device(place) = u_t / u_denom_t;
++    dev_ctx.Wait();
++
++    Copy(dev_ctx, u_new, dev_ctx.GetPlace(), true, u);
++    dev_ctx.Wait();
++  }
++
++  blas.MatMul(*weight, false, *v, false, T(1), &weight_v, T(0));
++  dev_ctx.Wait();
++
++  blas.MatMul(*u, true, weight_v, false, T(1), &sigma_scalar, T(0));
++  dev_ctx.Wait();
++
++  sigma_mat_t.device(place) = sigma_scalar_t.broadcast(Array2(h, w));
++  dev_ctx.Wait();
++
++  Copy(dev_ctx, sigma_mat, dev_ctx.GetPlace(), true, sigma);
++  dev_ctx.Wait();
++
++  DenseTensor weight_new;
++  weight_new.Resize({h, w});
++  dev_ctx.template Alloc<T>(&weight_new);
++  auto weight_new_t = EigenTensor<T, 2>::From(weight_new);
++
++  weight_new_t.device(place) = weight_t / sigma_mat_t;
++  dev_ctx.Wait();
++
++  Copy(dev_ctx, weight_new, dev_ctx.GetPlace(), true, weight);
++  dev_ctx.Wait();
++}
+
+-      real_dims.push_back(i);
++      real_dims.push_back(dims[i]);

@@ -1,0 +1,2 @@
+-#ifndef PADDLE_WITH_HIP
++#if !defined(PADDLE_WITH_HIP) && !defined(__MUSACC__)

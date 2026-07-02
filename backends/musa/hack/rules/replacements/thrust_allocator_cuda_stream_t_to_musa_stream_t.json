@@ -1,0 +1,6 @@
+[
+  {
+    "from": "phi::memory_utils::ThrustAllocator<cudaStream_t>",
+    "to": "phi::memory_utils::ThrustAllocator<musaStream_t>"
+  }
+]

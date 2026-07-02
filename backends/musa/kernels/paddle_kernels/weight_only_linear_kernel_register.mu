@@ -17,11 +17,6 @@
 // rights reserved.
 // - [register musa backend]
 
-
-#include "paddle/phi/kernels/flash_attn_kernel.h"
-#include "paddle/phi/kernels/gpu/flash_attn_utils.h"
-#include "paddle/phi/kernels/activation_kernel.h"
-
 #include <cstddef>
 #include <memory>
 #include <mutex>
@@ -31,6 +26,9 @@
 #include <cstdint> 
 
 #include "glog/logging.h"  // For VLOG()
+#include "paddle/phi/kernels/flash_attn_kernel.h"
+#include "paddle/phi/kernels/gpu/flash_attn_utils.h"
+#include "paddle/phi/kernels/activation_kernel.h"
 #include "paddle/common/enforce.h"
 #include "paddle/common/errors.h"
 #include "paddle/common/flags.h"
@@ -45,11 +43,12 @@
 #include "paddle/phi/kernels/slice_kernel.h"
 #include "paddle/utils/none.h"
 #include "paddle/phi/kernels/cast_kernel.h"
-
 #include "paddle/phi/kernels/transpose_kernel.h" 
-
 #include "paddle/phi/kernels/full_kernel.h"
 #include "paddle/phi/kernels/tril_triu_kernel.h"
+
+#include "kernels/kernels_utils.h"
+#include "kernels/musa_context.h"
 
 #include <musa_runtime.h>
 
@@ -65,22 +64,22 @@ muTensor CreateW4MUTensor(const DenseTensor& weight,
   muTensor w_m;
   // weight: (K // 8, M) -> w_m: (K, M) with INT4
   if (weight_dtype == "int4") {
-    CHECK_MUDNN_STATUS(w_m.SetType(muTensor::Type::QINT4), "Set QINT4 dtype");
+    MUDNN_CHECK(w_m.SetType(muTensor::Type::QINT4), "Set QINT4 dtype");
   } else if (weight_dtype == "int8") {
-    CHECK_MUDNN_STATUS(w_m.SetType(muTensor::Type::QINT8), "Set QINT8 dtype");
+    MUDNN_CHECK(w_m.SetType(muTensor::Type::QINT8), "Set QINT8 dtype");
   } else {
     PADDLE_THROW(common::errors::Unimplemented(
         "Only support int4 and int8 for weight_only_linear"));
   }
-  CHECK_MUDNN_STATUS(w_m.SetAddr(weight.data()), "SetAddr");
-  CHECK_MUDNN_STATUS(w_m.SetFormat(muTensor::Format::NCHW), "SetFormat");
+  MUDNN_CHECK(w_m.SetAddr(weight.data()), "SetAddr");
+  MUDNN_CHECK(w_m.SetFormat(muTensor::Format::NCHW), "SetFormat");
   if (trans) {
     // set transposed shape and stride
-    CHECK_MUDNN_STATUS(w_m.SetNdInfo({weight.dims()[1], weight.dims()[0] * 8},
+    MUDNN_CHECK(w_m.SetNdInfo({weight.dims()[1], weight.dims()[0] * 8},
                                      {weight.strides()[1] * 8, weight.strides()[0]}),
                         "SetNdInfo");
   } else {
-    CHECK_MUDNN_STATUS(w_m.SetNdInfo({weight.dims()[0] * 8, weight.dims()[1]},
+    MUDNN_CHECK(w_m.SetNdInfo({weight.dims()[0] * 8, weight.dims()[1]},
                                      {weight.strides()[0], weight.strides()[1]}),
                         "SetNdInfo");
   }
@@ -260,18 +259,18 @@ void WeightOnlyLinearKernel(const Context& dev_ctx,
         b_mt = muTensor();
     }
 
-    CHECK_MUDNN_STATUS(op.SetAlpha(1.0), "SetAlpha");
-    CHECK_MUDNN_STATUS(op.SetBeta(0.0), "SetBeta");
-    CHECK_MUDNN_STATUS(op.SetGamma(1.0), "SetGamma");
-    CHECK_MUDNN_STATUS(op.SetTranspose(trans_l, trans_r), "SetTranspose");
-    CHECK_MUDNN_STATUS(
+    MUDNN_CHECK(op.SetAlpha(1.0), "SetAlpha");
+    MUDNN_CHECK(op.SetBeta(0.0), "SetBeta");
+    MUDNN_CHECK(op.SetGamma(1.0), "SetGamma");
+    MUDNN_CHECK(op.SetTranspose(trans_l, trans_r), "SetTranspose");
+    MUDNN_CHECK(
         op.SetComputeMode(static_cast<::musa::dnn::MatMul::ComputeMode>(0)),
         "SetComputeMode");
 
     ::musa::dnn::MatMulLtParam param;
-    CHECK_MUDNN_STATUS(param.SetScale(muTensor(), s_mt, muTensor(), muTensor()),
+    MUDNN_CHECK(param.SetScale(muTensor(), s_mt, muTensor(), muTensor()),
                         "SetScale");
-    CHECK_MUDNN_STATUS(op.RunLt(h, o_mt, in_mt, w_mt, muTensor(), b_mt, param,
+    MUDNN_CHECK(op.RunLt(h, o_mt, in_mt, w_mt, muTensor(), b_mt, param,
                                 maintainer),
                         "RunLt");
 }

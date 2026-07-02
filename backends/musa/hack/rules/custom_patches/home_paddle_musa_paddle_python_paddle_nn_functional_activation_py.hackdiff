@@ -1,0 +1,18 @@
+-    ):
+-        dtype = convert_np_dtype_to_dtype_(dtype)
+-    if in_dynamic_or_pir_mode():
+-        outs_cast = x if dtype is None else _C_ops.cast(x, dtype)
+-        return _C_ops.softmax(outs_cast, axis, out=out)
+-    else:
+-        use_cudnn = True
+-        if dtype is None:
++    ):
++        dtype = convert_np_dtype_to_dtype_(dtype)
++    if in_dynamic_or_pir_mode():
++        # TODO restore the original cast
++        # outs_cast = x if dtype is None else _C_ops.cast(x, dtype)
++        # return _C_ops.softmax(outs_cast, axis, out=out)
++        return _C_ops.softmax(x, axis, out=out)
++    else:
++        use_cudnn = True
++        if dtype is None:

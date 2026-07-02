@@ -1,0 +1,6 @@
+[
+  {
+    "from": "__nv_bfloat16",
+    "to": "__mt_bfloat16"
+  }
+]

@@ -1,0 +1,2 @@
+-#include "paddle/phi/backends/gpu/cuda/cuda_helper.h"
++#include "musa_helper.h"

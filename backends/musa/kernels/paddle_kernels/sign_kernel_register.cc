@@ -19,6 +19,7 @@
 
 
 #include "paddle/phi/kernels/sign_kernel.h"
+#include "paddle/phi/kernels/impl/sign_kernel_impl.h"
 #include "paddle/phi/core/kernel_registry.h"
 
 PD_CUSTOM_KERNEL_REGISTER(sign,

@@ -1,0 +1,54 @@
+-  auto x = EigenVector<T>::Flatten(*input);
+-  auto out = EigenVector<T>::Flatten(*output);
+-  auto x_norm = x.square().sum().sqrt();
++  auto x = phi::EigenVector<T>::Flatten(*input);
++  auto out = phi::EigenVector<T>::Flatten(*output);
+ 
+-  auto temp = (x_norm <= max_norm).template cast<T>();
+-  auto epsilon = ((x_norm <= static_cast<T>(1e-30)).all().template cast<T>()) *
+-                 static_cast<T>(1e-6);
++  DenseTensor tmp;
++  tmp.Resize({1});
++  dev_ctx.template Alloc<T>(&tmp);
++
++  std::vector<int> reduce_dims(input->dims().size());
++  for (int i = 0; i < reduce_dims.size(); ++i) {
++    reduce_dims[i] = i;
++  }
++
++  #ifdef PADDLE_WITH_MUSA
++  phi::funcs::ReduceKernel<T, T, kps::AddFunctor, kps::SquareFunctor<T, T>>(
++      dev_ctx, *input, &tmp, kps::SquareFunctor<T, T>(), reduce_dims);
++  #endif
++
++  DenseTensor norm_tensor;
++  norm_tensor.Resize({1});
++  dev_ctx.template Alloc<T>(&norm_tensor);
++
++  auto tmp_eigen = phi::EigenVector<T>::Flatten(tmp);
++  auto norm = phi::EigenVector<T>::Flatten(norm_tensor);
++
++  norm.device(*place) = tmp_eigen.sqrt();
++
++  auto temp = (norm <= static_cast<T>(max_norm)).template cast<T>();
++  auto epsilon =
++      ((norm <= static_cast<T>(1e-30)).all().template cast<T>()) *
++      static_cast<T>(1e-6);
+ 
+-  auto scaling =
+-      temp + (static_cast<T>(1) - temp) * max_norm / (x_norm + epsilon);
++  auto scaling =
++      temp + (static_cast<T>(1) - temp) *
++                 static_cast<T>(max_norm) / (norm + epsilon);
+
+-  if (dev_ctx.GetPlace() == CPUPlace()) {
+-    out.device(*place) = x * scaling.reshape(one_dim).eval().broadcast(m_dsize);
++
++  if (dev_ctx.GetPlace() == phi::CPUPlace()) {
++    out.device(*place) =
++        x * scaling.reshape(one_dim).eval().broadcast(m_dsize);
+
+-    out.device(*place) = x * scaling.reshape(one_dim).broadcast(m_dsize);
++    out.device(*place) =
++        x * scaling.reshape(one_dim).broadcast(m_dsize);
+ 

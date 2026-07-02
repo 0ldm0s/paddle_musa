@@ -1,0 +1,42 @@
+-#if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
+-  /**
+-   * @brief get the memory usage of current GPU device.
+-   *
+-   * @param[size_t] available  device available memory to alloc
+-   * @param[size_t] total      device total memory
+-   */
+-  void (*gpu_memory_usage)(size_t* available, size_t* total);
+-#endif
++#if defined(PADDLE_WITH_MUSA) || defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
++  /**
++   * @brief get the memory usage of current GPU device.
++   *
++   * @param[size_t] available  device available memory to alloc
++   * @param[size_t] total      device total memory
++   */
++  void (*gpu_memory_usage)(size_t* available, size_t* total);
++#endif
++
+
+-#if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
+-  void GpuMemoryUsage(size_t* available, size_t* total) {
+-    CheckMemoryMethod();
+-    PADDLE_ENFORCE_NOT_NULL(
+-        memory_method_->gpu_memory_usage,
+-        common::errors::Unavailable(
+-            "gpu_memory_usage method in memory_method_ is not initialized "
+-            "yet. You need init it first."));
+-    return memory_method_->gpu_memory_usage(available, total);
+-  }
+-#endif
++#if defined(PADDLE_WITH_MUSA) || defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
++  void GpuMemoryUsage(size_t* available, size_t* total) {
++    CheckMemoryMethod();
++    PADDLE_ENFORCE_NOT_NULL(
++        memory_method_->gpu_memory_usage,
++        common::errors::Unavailable(
++            "gpu_memory_usage method in memory_method_ is not initialized "
++            "yet. You need init it first."));
++    return memory_method_->gpu_memory_usage(available, total);
++  }
++#endif

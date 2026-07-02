@@ -1,0 +1,13 @@
+@@
+   switch (kVecSize) {
+     CALL_SELECT_KERNEL(4)
+     CALL_SELECT_KERNEL(2)
+     CALL_SELECT_KERNEL(1)
+     default:
+       PADDLE_THROW(common::errors::Unimplemented(
+           "Unsupported vectorized size: %d", kVecSize));
+       break;
+   }
++  dev_ctx.Wait();
+ #undef CALL_GET_BLOCK_COUNT_KERNEL
+ #undef CALL_SELECT_KERNEL

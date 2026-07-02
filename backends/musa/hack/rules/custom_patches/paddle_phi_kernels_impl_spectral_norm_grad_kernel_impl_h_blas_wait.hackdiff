@@ -1,0 +1,80 @@
+-      real_dims.push_back(i);
++      real_dims.push_back(dims[i]);
+
+-
+-  DenseTensor weight_grad_mat;
+-  weight_grad_mat.Resize({h, w});
+-  dev_ctx.template Alloc<T>(&weight_grad_mat);
+-  auto weight_grad_mat_t = EigenTensor<T, 2>::From(weight_grad_mat);
+-  auto weight_mat_t = EigenTensor<T, 2>::From(weight_mat);
+-  auto out_grad_mat_t = EigenTensor<T, 2>::From(out_grad_mat);
+-  auto sigma_t = EigenTensor<T, 2>::From(sigma);
+-  auto uv_t = EigenTensor<T, 2>::From(uv);
+-  weight_mat_t.device(place) =
+-      weight_mat_t.sum().eval().reshape(Array2(1, 1)).broadcast(Array2(h, w));
+-  weight_grad_mat_t.device(place) =
+-      out_grad_mat_t * (out_grad_mat_t.constant(1.0) - uv_t * weight_mat_t) /
+-      sigma_t;
++  dev_ctx.Wait();
++
++  DenseTensor ones_w, ones_h, row_sum, weight_sum_scalar;
++  ones_w.Resize({w, 1});
++  ones_h.Resize({h, 1});
++  row_sum.Resize({h, 1});
++  weight_sum_scalar.Resize({1, 1});
++  dev_ctx.template Alloc<T>(&ones_w);
++  dev_ctx.template Alloc<T>(&ones_h);
++  dev_ctx.template Alloc<T>(&row_sum);
++  dev_ctx.template Alloc<T>(&weight_sum_scalar);
++
++  funcs::SetConstant<Context, T> set_constant;
++  set_constant(dev_ctx, &ones_w, static_cast<T>(1));
++  set_constant(dev_ctx, &ones_h, static_cast<T>(1));
++  dev_ctx.Wait();
++
++  blas.MatMul(weight_mat, false, ones_w, false, T(1), &row_sum, T(0));
++  dev_ctx.Wait();
++
++  blas.MatMul(ones_h, true, row_sum, false, T(1), &weight_sum_scalar, T(0));
++  dev_ctx.Wait();
++
++  DenseTensor weight_sum_mat, tmp_mul, tmp_sub, tmp_out;
++  weight_sum_mat.Resize({h, w});
++  tmp_mul.Resize({h, w});
++  tmp_sub.Resize({h, w});
++  tmp_out.Resize({h, w});
++  dev_ctx.template Alloc<T>(&weight_sum_mat);
++  dev_ctx.template Alloc<T>(&tmp_mul);
++  dev_ctx.template Alloc<T>(&tmp_sub);
++  dev_ctx.template Alloc<T>(&tmp_out);
++
++  auto weight_sum_scalar_t = EigenTensor<T, 2>::From(weight_sum_scalar);
++  auto weight_sum_mat_t = EigenTensor<T, 2>::From(weight_sum_mat);
++  auto uv_t = EigenTensor<T, 2>::From(uv);
++  auto out_grad_mat_t = EigenTensor<T, 2>::From(out_grad_mat);
++  auto sigma_t = EigenTensor<T, 2>::From(sigma);
++  auto tmp_mul_t = EigenTensor<T, 2>::From(tmp_mul);
++  auto tmp_sub_t = EigenTensor<T, 2>::From(tmp_sub);
++  auto tmp_out_t = EigenTensor<T, 2>::From(tmp_out);
++
++  weight_sum_mat_t.device(place) =
++      weight_sum_scalar_t.broadcast(Array2(h, w));
++  dev_ctx.Wait();
++
++  tmp_mul_t.device(place) = uv_t * weight_sum_mat_t;
++  dev_ctx.Wait();
++
++  tmp_sub_t.device(place) =
++      tmp_mul_t.constant(static_cast<T>(1)) - tmp_mul_t;
++  dev_ctx.Wait();
++
++  tmp_out_t.device(place) = out_grad_mat_t * tmp_sub_t;
++  dev_ctx.Wait();
++
++  DenseTensor weight_grad_mat;
++  weight_grad_mat.Resize({h, w});
++  dev_ctx.template Alloc<T>(&weight_grad_mat);
++  auto weight_grad_mat_t = EigenTensor<T, 2>::From(weight_grad_mat);
++
++  weight_grad_mat_t.device(place) = tmp_out_t / sigma_t;
++  dev_ctx.Wait();

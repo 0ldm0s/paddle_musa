@@ -1,0 +1,21 @@
+- namespace phi::distributed {
++#include "musa_runtime.h"
++ 
++ namespace phi::distributed {
+
+-void CommContextManager::SetDeviceId(int dev_id) {
+-#if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL)
+-  phi::backends::gpu::SetDeviceId(dev_id);
+-  CommContextManager::device_id = dev_id;
+-#elif defined(PADDLE_WITH_XPU_BKCL)
+-  phi::backends::xpu::SetXPUDeviceId(dev_id);
+-  CommContextManager::device_id = dev_id;
+-#endif
+-}
++#ifdef PADDLE_WITH_CUSTOM_DEVICE
++ void CommContextManager::SetDeviceId(int dev_id) {
++   musaSetDevice(dev_id);
++   CommContextManager::device_id = dev_id;
++ }
++#endif
++

@@ -21,6 +21,28 @@
 #include "paddle/phi/kernels/full_kernel.h"
 #include "paddle/phi/core/kernel_registry.h"
 
+namespace phi {
+
+template <typename T, typename Context>
+void FullBatchSizeLikeKernel(const Context& dev_ctx,
+                             const DenseTensor& x,
+                             const std::vector<int>& shape UNUSED,
+                             const Scalar& val,
+                             DataType dtype,
+                             int x_batch_size_dim,
+                             int out_batch_size_dim,
+                             DenseTensor* out) {
+  if (!x.lod().empty() && x_batch_size_dim == 0) {
+    // set the correct batch size for the DenseTensor.
+    auto odims = out->dims();
+    odims[out_batch_size_dim] = static_cast<int>(x.lod().back().size()) - 1;
+    FullKernel<T, Context>(dev_ctx, common::vectorize(odims), val, dtype, out);
+  }
+  FullLikeKernel<T, Context>(dev_ctx, x, val, dtype, out);
+}
+
+}  // namespace phi
+
 PD_CUSTOM_KERNEL_REGISTER(full,
                    musa,
                    ALL_LAYOUT,
@@ -77,4 +99,18 @@ PD_CUSTOM_KERNEL_REGISTER(full_with_tensor,
                    phi::complex64,
                    phi::complex128) {
   kernel->InputAt(0).SetBackend(phi::Backend::CPU);
+}
+
+PD_CUSTOM_KERNEL_REGISTER(full_batch_size_like,
+                   musa,
+                   ALL_LAYOUT,
+                   phi::FullBatchSizeLikeKernel,
+                   float,
+                   double,
+                   int,
+                   int64_t,
+                   bool,
+                   phi::float16,
+                   phi::bfloat16) {
+  kernel->InputAt(0).SetBackend(phi::Backend::ALL_BACKEND);
 }

@@ -1,0 +1,6 @@
+[
+  {
+    "from": "__CUDA_ARCH__",
+    "to": "__MUSACC__"
+  }
+]

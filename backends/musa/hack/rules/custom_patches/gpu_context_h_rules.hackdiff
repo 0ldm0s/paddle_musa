@@ -1,0 +1,21 @@
+-  /*! \brief  Return persistent cublasLt workspace (grow-only, multi-stream
+-   * safe). */
+-  std::pair<void*, size_t> cublaslt_workspace(size_t required_size) const;
+-
+-  /*! \brief  Return cusolver handle in the device context. */
+-  solverHandle_t cusolver_dn_handle() const;
++  // /*! \brief  Return cusolver handle in the device context. */
++  // is close for musa
++  // solverHandle_t cusolver_dn_handle() const;
+ 
+-  void SetSolverHandle(solverHandle_t);
+-  void SetSolverHandle(std::function<solverHandle_t()>&&);
++  // is close for musa temporary
++  // void SetSolverHandle(solverHandle_t);
++  // void SetSolverHandle(std::function<solverHandle_t()>&&);
+ 
+-  dnnHandle_t cudnn_handle() const override {
+-    PADDLE_THROW(common::errors::Unavailable(
+-        "GPUPinnedContext does not support cudnn_handle()."));
+-  }
+-

@@ -61,6 +61,32 @@ PD_CUSTOM_KERNEL_REGISTER(matmul,
     kernel->OutputAt(0).SetDataType(phi::DataType::FLOAT16);
   }
 }
+
+PD_CUSTOM_KERNEL_REGISTER(matmul_with_flatten,
+                          musa,
+                          ALL_LAYOUT,
+                          phi::MatmulWithFlattenKernel,
+                          float,
+                          double,
+                          phi::dtype::bfloat16,
+                          phi::dtype::float16) {
+  if (kernel_key.dtype() == phi::DataType::INT8) {
+    kernel->OutputAt(0).SetDataType(phi::DataType::INT32);
+  }
+}
+
+PD_CUSTOM_KERNEL_REGISTER(legacy_matmul,
+                          musa,
+                          ALL_LAYOUT,
+                          phi::LegacyMatmulKernel,
+                          float,
+                          double,
+                          phi::dtype::float16,
+                          int8_t) {
+  if (kernel_key.dtype() == phi::DataType::INT8) {
+    kernel->OutputAt(0).SetDataType(phi::DataType::INT32);
+  }
+}
 #else
 PD_CUSTOM_KERNEL_REGISTER(matmul,
                    musa,

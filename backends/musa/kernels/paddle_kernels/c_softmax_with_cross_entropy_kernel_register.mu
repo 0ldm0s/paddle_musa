@@ -1,0 +1,375 @@
+// Copyright (c) 2026 Moore Threads Technology Co., Ltd("Moore Threads"). All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#include "paddle/phi/backends/gpu/gpu_context.h"
+#include "paddle/phi/core/kernel_registry.h"
+#include "paddle/phi/core/platform/collective_helper.h"
+#include "paddle/phi/kernels/activation_kernel.h"
+#include "paddle/phi/kernels/full_kernel.h"
+#include "paddle/phi/kernels/funcs/axis_utils.h"
+#include "paddle/phi/kernels/funcs/broadcast_function.h"
+#include "paddle/phi/kernels/funcs/cross_entropy.h"
+#include "paddle/phi/kernels/funcs/eigen/common.h"
+#include "paddle/phi/kernels/funcs/elementwise_functor.h"
+#include "paddle/phi/kernels/funcs/math.h"
+#include "paddle/phi/kernels/funcs/math_function.h"
+#include "paddle/phi/kernels/funcs/softmax.h"
+#include "paddle/phi/kernels/funcs/softmax_impl.h"
+#include "paddle/phi/kernels/reduce_max_kernel.h"
+#include "paddle/phi/kernels/reduce_sum_kernel.h"
+#include "paddle/utils/string/string_helper.h"
+
+#include "paddle/phi/core/distributed/xccl_comm_context.h"
+
+namespace phi {
+
+template <typename Context, typename T>
+struct CSoftmaxWithCrossEntropyFunctor {
+  void operator()(const Context& dev_ctx,
+                  const DenseTensor& logits,
+                  const DenseTensor& label,
+                  int64_t ignore_index,
+                  int rank,
+                  int nranks,
+                  DenseTensor* softmax,
+                  DenseTensor* loss);
+};
+
+static constexpr int kNumCUDAThreads = 512;
+static constexpr int64_t kNumMaximumNumBlocks = 4096;
+
+static inline int64_t NumBlocks(const int64_t N) {
+  return std::min((N + kNumCUDAThreads - 1) / kNumCUDAThreads,
+                  kNumMaximumNumBlocks);
+}
+
+template <typename T, typename IndexT>
+__global__ void MaskLabelByIndex(T* predicted_logits,
+                                 const T* logit,
+                                 const IndexT* label,
+                                 const IndexT ignore_index,
+                                 const int64_t start_index,
+                                 const int64_t end_index,
+                                 const int64_t N,
+                                 const int64_t D,
+                                 const int nranks) {
+  CUDA_KERNEL_LOOP_TYPE(i, N, int64_t) {
+    auto real_label = label[i];
+    PADDLE_ENFORCE(((real_label < D * nranks) && (real_label >= 0)) ||
+                       (real_label == ignore_index),
+                   "The index is out of bounds, "
+                   "please check whether the value of label and "
+                   "input meet the class number. It should "
+                   "be less than [%ld] or equal to [%ld], but received [%ld]",
+                   static_cast<int64_t>(D * nranks),
+                   static_cast<int64_t>(ignore_index),
+                   static_cast<int64_t>(real_label));
+
+    if (real_label >= start_index && real_label < end_index) {
+      predicted_logits[i] = logit[i * D + real_label - start_index];
+    }
+  }
+}
+
+template <typename T, typename IndexT>
+__global__ void SoftMaskLabelByIndex(T* predicted_logits,
+                                     const T* logit,
+                                     const IndexT* label,
+                                     const IndexT ignore_index,
+                                     const int64_t start_index,
+                                     const int64_t end_index,
+                                     const int64_t N,
+                                     const int64_t D,
+                                     const int64_t C,
+                                     const int nranks) {
+  CUDA_KERNEL_LOOP_TYPE(i, N, int64_t) {
+    for (int j = 0; j < C; ++j) {
+      auto real_label = label[i * C + j];
+      PADDLE_ENFORCE(((real_label < D * nranks) && (real_label >= 0)) ||
+                         (real_label == ignore_index),
+                     "The index is out of bounds, "
+                     "please check whether the value of label and "
+                     "input meet the class number. It should "
+                     "be less than [%ld] or equal to [%ld], but received [%ld]",
+                     static_cast<int64_t>(D * nranks),
+                     static_cast<int64_t>(ignore_index),
+                     static_cast<int64_t>(real_label));
+
+      if (real_label >= start_index && real_label < end_index) {
+        predicted_logits[i * C + j] = logit[i * D + real_label - start_index];
+      }
+    }
+  }
+}
+
+template <typename T, typename IndexT>
+__global__ void CalculateLoss(T* loss,
+                              const T* predict_logits,
+                              const T* sum_exp_logits,
+                              const IndexT* label,
+                              const int64_t ignore_index,
+                              const int64_t N) {
+  CUDA_KERNEL_LOOP_TYPE(i, N, int64_t) {
+    auto real_label = static_cast<int64_t>(label[i]);
+    loss[i] = ignore_index == real_label
+                  ? static_cast<T>(0)
+                  : funcs::TolerableValue<T>()(
+                        funcs::TolerableValue<T>()(
+                            funcs::real_log(sum_exp_logits[i])) -
+                        predict_logits[i]);
+  }
+}
+
+template <typename T, typename IndexT>
+__global__ void CalculateSoftLoss(T* loss,
+                                  const T* predict_logits,
+                                  const T* sum_exp_logits,
+                                  const IndexT* label,
+                                  const int64_t ignore_index,
+                                  const int64_t N,
+                                  const int64_t C) {
+  const T prob = static_cast<T>(1.0 / C);
+
+  CUDA_KERNEL_LOOP_TYPE(i, N, int64_t) {
+    T tmp_loss = static_cast<T>(0);
+    int ignore_num = 0;
+    for (int j = 0; j < C; ++j) {
+      auto real_label = static_cast<int64_t>(label[i * C + j]);
+      tmp_loss += ignore_index == real_label
+                      ? static_cast<T>(0)
+                      : funcs::TolerableValue<T>()(
+                            (funcs::TolerableValue<T>()(
+                                 funcs::real_log(sum_exp_logits[i])) -
+                             predict_logits[i * C + j]) *
+                            prob);
+      ignore_num += ignore_index == real_label ? 1 : 0;
+    }
+    loss[i] = ignore_num > 0 ? static_cast<T>(0) : tmp_loss;
+  }
+}
+
+template <typename T, typename Context>
+void CSoftmaxWithCrossEntropyKernel(const Context& dev_ctx,
+                                    const DenseTensor& logits,
+                                    const DenseTensor& label,
+                                    int64_t ignore_index,
+                                    int rank,
+                                    int nranks,
+                                    DenseTensor* softmax,
+                                    DenseTensor* loss) {
+  CSoftmaxWithCrossEntropyFunctor<GPUContext, T> functor_;
+  functor_(dev_ctx, logits, label, ignore_index, rank, nranks, softmax, loss);
+}
+
+template <typename T>
+struct CSoftmaxWithCrossEntropyFunctor<GPUContext, T> {
+  void operator()(const GPUContext& dev_ctx,
+                  const DenseTensor& logits_in,
+                  const DenseTensor& label_in,
+                  int64_t ignore_index,
+                  int rank,
+                  int nranks,
+                  DenseTensor* softmax,
+                  DenseTensor* loss) {
+    const DenseTensor* logits = &logits_in;
+    const DenseTensor* labels = &label_in;
+
+    gpuStream_t stream = nullptr;
+    distributed::XCCLCommContext* comm_ctx = nullptr;
+
+    comm_ctx =
+        static_cast<distributed::XCCLCommContext*>(dev_ctx.GetCommContext());
+    PADDLE_ENFORCE_NE(comm_ctx,
+                      nullptr,
+                      common::errors::Unavailable(
+                          "XCCLCommContext is nullptr, collective op should "
+                          "has ring_id attr."));
+
+    stream = dev_ctx.stream();
+
+    // allocate memory on device.
+    dev_ctx.template Alloc<T>(softmax);
+    dev_ctx.template Alloc<T>(loss);
+
+    const auto& logits_dims = logits->dims();
+    const auto& labels_dims = labels->dims();
+
+    const int axis = logits_dims.size() - 1;
+    const int64_t N = funcs::SizeToAxis<int64_t>(axis, logits_dims);
+    const int64_t D = funcs::SizeFromAxis<int64_t>(axis, logits_dims);
+    const int64_t C = funcs::SizeFromAxis<int64_t>(axis, labels_dims);
+
+    DenseTensor logits_2d, softmax_2d, loss_2d;
+    logits_2d.ShareDataWith(*logits).Resize({N, D});
+    softmax_2d.ShareDataWith(*softmax).Resize({N, D});
+    loss_2d.ShareDataWith(*loss).Resize({N, 1});
+
+    // step 1, obtain logit_max
+    DenseTensor logits_max;
+    logits_max.Resize({N, 1});
+    dev_ctx.template Alloc<T>(&logits_max);
+
+    MaxKernel<T, GPUContext>(dev_ctx, logits_2d, {-1}, true, &logits_max);
+
+    comm_ctx->AllReduce(&logits_max, logits_max, phi::ccl::CCLReduceOp::MAX, stream);
+
+    // step 2, obtain logit - logit_max
+    std::vector<const DenseTensor*> inputs = {&logits_2d, &logits_max};
+    std::vector<DenseTensor*> outputs = {&softmax_2d};
+    funcs::BroadcastKernel<T>(
+        dev_ctx, inputs, &outputs, funcs::SubtractFunctor<T>());
+
+    // step 3, obtain predict target
+    DenseTensor predicted_logits;
+    predicted_logits.Resize({N, 1});
+    dev_ctx.template Alloc<T>(&predicted_logits);
+
+    Full<T, GPUContext>(dev_ctx, predicted_logits.dims(), 0, &predicted_logits);
+
+    const int64_t start_index = rank * D;
+    const int64_t end_index = start_index + D;
+
+    int64_t blocks = NumBlocks(N);
+    int threads = kNumCUDAThreads;
+    const auto& label_type = labels->dtype();
+
+    if (label_type == DataType::INT32) {
+      if (C > 1) {
+        SoftMaskLabelByIndex<T, int32_t>
+            <<<blocks, threads, 0, dev_ctx.stream()>>>(
+                predicted_logits.data<T>(),
+                softmax_2d.data<T>(),
+                labels->data<int32_t>(),
+                static_cast<int32_t>(ignore_index),
+                start_index,
+                end_index,
+                N,
+                D,
+                C,
+                nranks);
+      } else {
+        MaskLabelByIndex<T, int32_t><<<blocks, threads, 0, dev_ctx.stream()>>>(
+            predicted_logits.data<T>(),
+            softmax_2d.data<T>(),
+            labels->data<int32_t>(),
+            static_cast<int32_t>(ignore_index),
+            start_index,
+            end_index,
+            N,
+            D,
+            nranks);
+      }
+    } else if (label_type == DataType::INT64) {
+      if (C > 1) {
+        SoftMaskLabelByIndex<T, int64_t>
+            <<<blocks, threads, 0, dev_ctx.stream()>>>(
+                predicted_logits.data<T>(),
+                softmax_2d.data<T>(),
+                labels->data<int64_t>(),
+                ignore_index,
+                start_index,
+                end_index,
+                N,
+                D,
+                C,
+                nranks);
+      } else {
+        MaskLabelByIndex<T, int64_t><<<blocks, threads, 0, dev_ctx.stream()>>>(
+            predicted_logits.data<T>(),
+            softmax_2d.data<T>(),
+            labels->data<int64_t>(),
+            ignore_index,
+            start_index,
+            end_index,
+            N,
+            D,
+            nranks);
+      }
+    }
+
+    dev_ctx.template Alloc<T>(&predicted_logits);
+    comm_ctx->AllReduce(&predicted_logits, predicted_logits, phi::ccl::CCLReduceOp::SUM, stream);
+
+    // step 4, obtain exp(logit)
+    ExpKernel<T, GPUContext>(dev_ctx, softmax_2d, &softmax_2d);
+
+    // step 5, obtain sum_exp_logits
+    DenseTensor sum_exp_logits;
+    sum_exp_logits.Resize({N, 1});
+    dev_ctx.template Alloc<T>(&sum_exp_logits);
+
+    SumKernel<T, GPUContext>(
+        dev_ctx, softmax_2d, {-1}, softmax_2d.dtype(), true, &sum_exp_logits);
+
+    comm_ctx->AllReduce(&sum_exp_logits, sum_exp_logits, phi::ccl::CCLReduceOp::SUM, stream);
+
+    if (label_type == DataType::INT32) {
+      if (C > 1) {
+        CalculateSoftLoss<T, int32_t><<<blocks, threads, 0, dev_ctx.stream()>>>(
+            loss_2d.data<T>(),
+            predicted_logits.data<T>(),
+            sum_exp_logits.data<T>(),
+            labels->data<int32_t>(),
+            ignore_index,
+            N,
+            C);
+      } else {
+        CalculateLoss<T, int32_t><<<blocks, threads, 0, dev_ctx.stream()>>>(
+            loss_2d.data<T>(),
+            predicted_logits.data<T>(),
+            sum_exp_logits.data<T>(),
+            labels->data<int32_t>(),
+            ignore_index,
+            N);
+      }
+
+    } else {
+      if (C > 1) {
+        CalculateSoftLoss<T, int64_t><<<blocks, threads, 0, dev_ctx.stream()>>>(
+            loss_2d.data<T>(),
+            predicted_logits.data<T>(),
+            sum_exp_logits.data<T>(),
+            labels->data<int64_t>(),
+            ignore_index,
+            N,
+            C);
+      } else {
+        CalculateLoss<T, int64_t><<<blocks, threads, 0, dev_ctx.stream()>>>(
+            loss_2d.data<T>(),
+            predicted_logits.data<T>(),
+            sum_exp_logits.data<T>(),
+            labels->data<int64_t>(),
+            ignore_index,
+            N);
+      }
+    }
+
+    ReciprocalKernel<T, GPUContext>(dev_ctx, sum_exp_logits, &sum_exp_logits);
+
+    inputs = std::vector<const DenseTensor*>{&softmax_2d, &sum_exp_logits};
+    outputs = std::vector<DenseTensor*>{&softmax_2d};
+    funcs::BroadcastKernel<T>(
+        dev_ctx, inputs, &outputs, funcs::MultiplyFunctor<T>());
+  }
+};
+
+}  // namespace phi
+
+PD_CUSTOM_KERNEL_REGISTER(c_softmax_with_cross_entropy,
+                          musa,
+                          ALL_LAYOUT,
+                          phi::CSoftmaxWithCrossEntropyKernel,
+                          float,
+                          double,
+                          phi::float16) {}

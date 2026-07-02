@@ -21,6 +21,7 @@ limitations under the License. */
 #include <type_traits>
 
 #include "musa_dynamic_loader.h"  // NOLINT
+#include "paddle/common/enforce.h"
 #include "paddle/phi/common/port.h"
 #include "paddle/phi/core/enforce.h"
 
@@ -120,6 +121,8 @@ extern void *mublas_dso_handle;
   __macro(mublasDtrsmBatched);            \
   __macro(mublasCtrsmBatched);            \
   __macro(mublasZtrsmBatched);            \
+  __macro(mublasCgetrfBatched);           \
+  __macro(mublasZgetrfBatched);           \
   MUBLAS_HGEMM_MACRO(__macro)
 // __macro(mublasSgemmEx);
 // __macro(mublasSgetrfBatched);

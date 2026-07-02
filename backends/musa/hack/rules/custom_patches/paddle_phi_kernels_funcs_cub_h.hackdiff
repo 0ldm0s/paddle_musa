@@ -1,0 +1,6 @@
+-#pragma once
++#pragma once
++#ifdef PADDLE_WITH_MUSA
++#include <musa.h>
++#include <musa_runtime.h>
++#endif

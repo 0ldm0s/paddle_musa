@@ -1,0 +1,6 @@
+[
+  {
+    "from": "#ifdef PADDLE_WITH_HIP\n      PADDLE_ENFORCE_GPU_SUCCESS(\n          hipMemsetAsync(y_data, 0, x_numel * sizeof(T), stream));\n      PADDLE_ENFORCE_GPU_SUCCESS(\n          musaMemsetAsync(y_data, 0, x_numel * sizeof(T), stream));\n      PADDLE_ENFORCE_GPU_SUCCESS(\n          musaMemsetAsync(mask_data, 0, x_numel * sizeof(*mask_data), stream));",
+    "to": "      PADDLE_ENFORCE_GPU_SUCCESS(\n          musaMemsetAsync(y_data, 0, x_numel * sizeof(T), stream));\n      PADDLE_ENFORCE_GPU_SUCCESS(\n          musaMemsetAsync(mask_data, 0, x_numel * sizeof(*mask_data), stream));"
+  }
+]

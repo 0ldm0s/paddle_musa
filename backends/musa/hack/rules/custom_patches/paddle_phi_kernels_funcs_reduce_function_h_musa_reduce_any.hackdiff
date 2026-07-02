@@ -1,0 +1,9 @@
+-      block_dim->y = std::min(
+-          block_y, static_cast<int64_t>(max_num_threads / block_dim->x));
+-      grid_x = details::CeilingDiv(left_num, block_dim->y);
++      block_dim->y = std::min(
++          block_y, static_cast<int64_t>(max_num_threads / block_dim->x));
++#if defined(__MUSACC__)
++      block_dim->y = 1;
++#endif
++      grid_x = details::CeilingDiv(left_num, block_dim->y);

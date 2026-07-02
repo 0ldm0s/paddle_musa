@@ -1,0 +1,12 @@
+-      PADDLE_ENFORCE(label >= 0 && label < feature_size_,
+-                     "Variable value (label) of "
+-                     "OP(fluid.layers.cross_entropy) expected >= 0 "
+-                     "and < %ld, but got %ld. Please check label value.",
+-                     feature_size_,
+-                     label);
++      // PADDLE_ENFORCE(label >= 0 && label < feature_size_,
++      //                "Variable value (label) of "
++      //                "OP(fluid.layers.cross_entropy) expected >= 0 "
++      //                "and < %ld, but got %ld. Please check label value.",
++      //                feature_size_,
++      //                label);

@@ -1,0 +1,6 @@
+[
+  {
+    "from": "CUDA_VERSION",
+    "to": "MUSA_VERSION"
+  }
+]

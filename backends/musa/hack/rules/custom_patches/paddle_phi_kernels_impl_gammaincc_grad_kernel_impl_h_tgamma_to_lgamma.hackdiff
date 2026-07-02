@@ -1,0 +1,3 @@
+-                                  std::pow(mp_x, mp_a_1) / std::tgamma(mp_a));
++                                  std::pow(mp_x, mp_a_1) /
++                                      std::exp(std::lgamma(mp_a)));

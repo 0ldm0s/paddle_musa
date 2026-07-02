@@ -704,6 +704,82 @@ class TestWithInput1x1Filter1x1(TestConv2DOp):
         self.groups = 3
 
 
+@unittest.skipIf(
+    not (core.is_compiled_with_cuda() or is_custom_device()),
+    "core is not compiled with CUDA",
+)
+class TestMudnnDirectSmallOutChannels(TestConv2DOp):
+    def init_kernel_type(self):
+        self.use_cuda = True
+        self.dtype = np.float32
+        self.no_need_check_grad = True
+
+    def init_test_case(self):
+        self.pad = [1, 1]
+        self.stride = [1, 1]
+        self.input_size = [1, 8, 8, 8]  # NCHW
+        assert np.mod(self.input_size[1], self.groups) == 0
+        f_c = self.input_size[1] // self.groups
+        self.filter_size = [1, f_c, 3, 3]
+
+
+@unittest.skipIf(
+    not (core.is_compiled_with_cuda() or is_custom_device()),
+    "core is not compiled with CUDA",
+)
+class TestMudnnFmaAsmSmallOutChannels(TestConv2DOp):
+    def init_kernel_type(self):
+        self.use_cuda = True
+        self.dtype = np.float32
+        self.no_need_check_grad = True
+
+    def init_test_case(self):
+        self.pad = [1, 1]
+        self.stride = [1, 1]
+        self.input_size = [1, 8, 8, 8]  # NCHW
+        assert np.mod(self.input_size[1], self.groups) == 0
+        f_c = self.input_size[1] // self.groups
+        self.filter_size = [16, f_c, 3, 3]
+
+
+@unittest.skipIf(
+    not (core.is_compiled_with_cuda() or is_custom_device()),
+    "core is not compiled with CUDA",
+)
+class TestMudnnFmaAsm1x1SmallOutChannels(TestConv2DOp):
+    def init_kernel_type(self):
+        self.use_cuda = True
+        self.dtype = np.float32
+        self.no_need_check_grad = True
+
+    def init_test_case(self):
+        self.pad = [0, 0]
+        self.stride = [1, 1]
+        self.input_size = [1, 96, 1, 1]  # NCHW
+        assert np.mod(self.input_size[1], self.groups) == 0
+        f_c = self.input_size[1] // self.groups
+        self.filter_size = [96, f_c, 1, 1]
+
+
+@unittest.skipIf(
+    not (core.is_compiled_with_cuda() or is_custom_device()),
+    "core is not compiled with CUDA",
+)
+class TestPPYOLESpatialPointwise1x1(TestConv2DOp):
+    def init_kernel_type(self):
+        self.use_cuda = True
+        self.dtype = np.float32
+        self.no_need_check_grad = True
+
+    def init_test_case(self):
+        self.pad = [0, 0]
+        self.stride = [1, 1]
+        self.input_size = [2, 96, 92, 92]  # NCHW
+        assert np.mod(self.input_size[1], self.groups) == 0
+        f_c = self.input_size[1] // self.groups
+        self.filter_size = [96, f_c, 1, 1]
+
+
 # #----------------Conv2DCUDNN----------------
 
 #create_test_cudnn_class(TestConv2DOp)

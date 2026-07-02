@@ -1,0 +1,39 @@
+// Copyright (c) 2026 Moore Threads Technology Co., Ltd("Moore Threads"). All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#include "hack/cuda_hack/common_porting.h"
+#include "paddle/phi/kernels/gpu/slogdeterminant_grad_kernel.cu"
+#include "paddle/phi/core/kernel_registry.h"
+
+PD_CUSTOM_KERNEL_REGISTER(slogdet_grad,
+                          musa,
+                          ALL_LAYOUT,
+                          phi::SlogDeterminantGradKernel,
+                          float,
+                          double,
+                          phi::complex64,
+                          phi::complex128) {}
+
+PD_CUSTOM_KERNEL_REGISTER(slogdet_v2_grad,
+                          musa,
+                          ALL_LAYOUT,
+                          phi::SlogDeterminantV2GradKernel,
+                          float,
+                          double,
+                          phi::complex64,
+                          phi::complex128) {
+  phi::DataType real_dtype = phi::dtype::ToReal(kernel_key.dtype());
+  kernel->InputAt(2).SetDataType(real_dtype);
+  kernel->InputAt(4).SetDataType(real_dtype);
+}

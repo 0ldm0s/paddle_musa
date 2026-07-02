@@ -1,0 +1,20 @@
+-    PADDLE_ENFORCE(lbl >= 0 && lbl < D || lbl == ignore_index,
+-                   "The value of label[%d] expected >= 0 and < %ld, or == %ld, "
+-                   "but got %ld. Please check input value.",
+-                   i,
+-                   D,
+-                   ignore_index,
+-                   lbl);
+-    Y[i] = ignore_index == lbl
+-               ? static_cast<T>(0)
+-               : -funcs::TolerableValue<T>()(funcs::real_log(X[i * D + lbl]));
++    // PADDLE_ENFORCE(lbl >= 0 && lbl < D || lbl == ignore_index,
++    //                "The value of label[%d] expected >= 0 and < %ld, or == %ld, "
++    //                "but got %ld. Please check input value.",
++    //                i,
++    //                D,
++    //                ignore_index,
++    //                lbl);
++    Y[i] = ignore_index == lbl ? static_cast<T>(0)
++                               : -phi::funcs::TolerableValue<T>()(
++                                     phi::funcs::real_log(X[i * D + lbl]));

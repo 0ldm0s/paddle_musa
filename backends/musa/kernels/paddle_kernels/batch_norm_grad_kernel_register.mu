@@ -14,6 +14,8 @@
 
 #include "glog/logging.h"
 
+#include "kernels/kernels_utils.h"
+
 #include "paddle/common/flags.h"
 #include "paddle/common/layout.h"
 #include "paddle/phi/backends/gpu/gpu_context.h"
@@ -45,6 +47,19 @@ template <typename T>
 using CudnnDataType = phi::backends::gpu::CudnnDataType<T>;
 template <typename T>
 using BatchNormParamType = typename CudnnDataType<T>::BatchNormParamType;
+
+template <typename T>
+static __global__ void InvVarianceToVariance(
+    const BatchNormParamType<T> *inv_variance,
+    int C,
+    double epsilon,
+    BatchNormParamType<T> *variance) {
+  int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  if (idx < C) {
+    const double inv_var = static_cast<double>(inv_variance[idx]);
+    variance[idx] = static_cast<BatchNormParamType<T>>(1.0 / (inv_var * inv_var) - epsilon);
+  }
+}
 
 template <typename T, int BlockDim, phi::DataLayout layout>
 static __global__ LAUNCH_BOUNDS(BlockDim) void KeBNBackwardScaleBias(
@@ -759,6 +774,57 @@ void BatchNormGradFunctor(const Context &dev_ctx,
     // This branch calls CUDNN APIs
     if (d_x && d_scale && d_bias) {
 #if defined(PADDLE_WITH_HIP)||  defined(PADDLE_WITH_MUSA)
+#if defined(PADDLE_WITH_MUSA)
+      if (compute_format == DataLayout::kNCHW && (N * H * W * D) >= 32) {
+        DenseTensor raw_saved_variance =
+            phi::Empty<BatchNormParamType<T>, Context>(dev_ctx, {C});
+        const int threads = 256;
+        const int blocks = (C + threads - 1) / threads;
+        InvVarianceToVariance<T><<<blocks, threads, 0, dev_ctx.stream()>>>(
+            saved_var_data,
+            C,
+            epsilon,
+            raw_saved_variance.template data<BatchNormParamType<T>>());
+
+        DenseTensor d_mean = phi::Empty<BatchNormParamType<T>, Context>(dev_ctx, {C});
+        DenseTensor d_variance =
+            phi::Empty<BatchNormParamType<T>, Context>(dev_ctx, {C});
+
+        auto& h = GetMudnnHandle<Context>(dev_ctx);
+        auto dx_mt = CreateMUTensor(transformed_d_x);
+        auto dmean_mt = CreateMUTensor(d_mean);
+        auto dvariance_mt = CreateMUTensor(d_variance);
+        auto dscale_mt = CreateMUTensor(*d_scale);
+        auto dbias_mt = CreateMUTensor(*d_bias);
+        auto x_mt = CreateMUTensor(transformed_x);
+        auto dy_mt = CreateMUTensor(transformed_d_y);
+        auto saved_mean_mt = CreateMUTensor(saved_mean);
+        auto raw_saved_variance_mt = CreateMUTensor(raw_saved_variance);
+        auto scale_mt = CreateMUTensor(new_scale);
+
+        ::musa::dnn::BatchNorm bn;
+        MUDNN_CHECK(bn.SetMode(::musa::dnn::BatchNorm::Mode::PER_CHANNEL),
+                    "SetMode");
+        MUDNN_CHECK(bn.SetEpsilon(epsilon), "SetEpsilon");
+        MUDNN_CHECK(bn.SetTraining(true), "SetTraining");
+        auto place = dev_ctx.GetPlace();
+        ::musa::dnn::MemoryMaintainer maintainer =
+            [place](size_t bytes) { return PaddleInternalMemAlloc(bytes, place); };
+        MUDNN_CHECK(bn.RunBwd(h,
+                              dx_mt,
+                              dmean_mt,
+                              dvariance_mt,
+                              dscale_mt,
+                              dbias_mt,
+                              x_mt,
+                              dy_mt,
+                              saved_mean_mt,
+                              raw_saved_variance_mt,
+                              scale_mt,
+                              maintainer),
+                    "Run Mudnn BatchNorm Bwd");
+      } else
+#endif
       if (compute_format == DataLayout::kNCHW) {
           BNBackward<T, block, DataLayout::kNCHW>
               <<<grid2, block, 0, dev_ctx.stream()>>>(

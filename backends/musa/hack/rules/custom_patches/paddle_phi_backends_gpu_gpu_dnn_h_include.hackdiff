@@ -1,0 +1,4 @@
+-#include "paddle/phi/backends/gpu/cuda/cudnn_desc.h"
+-#include "paddle/phi/backends/gpu/cuda/cudnn_helper.h"
++#include "mudnn_desc.h"
++#include "mudnn_helper.h"

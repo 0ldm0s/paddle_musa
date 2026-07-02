@@ -1,0 +1,8 @@
+[
+  {
+    "from": "#endif\n#ifdef PADDLE_WITH_HIP\n#include <hip/hip_fp16.h>\n#endif\n#ifdef PADDLE_WITH_MUSA\n#include <musa_fp16.h>\n#endif\n\n\n",
+    "to": "#endif\n#ifdef PADDLE_WITH_HIP\n#include <hip/hip_fp16.h>\n#endif\n\n\n\n",
+    "multiline": true,
+    "max_replacements": 1
+  }
+]

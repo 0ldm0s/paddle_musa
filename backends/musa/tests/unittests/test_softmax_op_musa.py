@@ -415,6 +415,18 @@ class TestSoftmaxCUDNNOp12(TestSoftmaxCUDNNOp):
     not (core.is_compiled_with_cuda() or is_custom_device()),
     "core is not compiled with CUDA",
 )
+class TestSoftmaxCUDNNOpLastDim17(TestSoftmaxCUDNNOp):
+    def get_x_shape(self):
+        return [2, 4, 8, 17]
+
+    def get_axis(self):
+        return -1
+
+
+@unittest.skipIf(
+    not (core.is_compiled_with_cuda() or is_custom_device()),
+    "core is not compiled with CUDA",
+)
 class TestSoftmaxFP16Op(TestSoftmaxOp):
     def init_kernel_type(self):
         self.dtype = np.float16
@@ -804,7 +816,7 @@ class TestSoftmaxAPI_CompatibleWithTorch2(TestSoftmaxAPI):
     def test_static_check(self):
         with static_guard():
             for x_np, out_ref in zip(self.x_np_list, self.out_ref_list):
-                func = compat.softmax
+                func = compat.nn.functional.softmax
                 with paddle.static.program_guard(paddle.static.Program()):
                     x = paddle.static.data('X', x_np.shape, 'float32')
                     out1 = func(input=x, dim=None, _stacklevel=3)
@@ -854,7 +866,7 @@ class TestSoftmaxAPI_CompatibleWithTorch2(TestSoftmaxAPI):
     def test_dygraph_check(self):
         paddle.disable_static(self.place)
         for x_np, out_ref in zip(self.x_np_list, self.out_ref_list):
-            func = compat.softmax
+            func = compat.nn.functional.softmax
             x = paddle.to_tensor(x_np)
             out1 = func(input=x, dim=None, _stacklevel=3)
             x = paddle.to_tensor(x_np)
@@ -863,7 +875,7 @@ class TestSoftmaxAPI_CompatibleWithTorch2(TestSoftmaxAPI):
                 np.testing.assert_allclose(out_ref, r.numpy(), rtol=1e-05)
 
             # explicitly use float32 for ROCm, as MIOpen does not yet support float64
-            if True:
+            if core.is_compiled_with_rocm():
                 out = func(x, dtype=np.float32)
                 out_ref = ref_softmax(
                     x_np,
@@ -890,7 +902,7 @@ class TestSoftmaxAPI_CompatibleWithTorch2(TestSoftmaxAPI):
                 np.testing.assert_allclose(out_ref, r.numpy(), rtol=1e-05)
 
             # explicitly use float32 for ROCm, as MIOpen does not yet support float64
-            if True:
+            if core.is_compiled_with_rocm():
                 out = func(x, dtype=np.float32)
                 out_ref = ref_softmax(
                     x_np,
@@ -915,7 +927,7 @@ class TestSoftmaxAPI_CompatibleWithTorch2(TestSoftmaxAPI):
                 np.testing.assert_allclose(out_ref, r.numpy(), rtol=1e-05)
 
             # explicitly use float32 for ROCm, as MIOpen does not yet support float64
-            if True:
+            if core.is_compiled_with_rocm():
                 out = func(x, dtype=np.float32)
                 out_ref = ref_softmax(
                     x_np,
@@ -940,7 +952,7 @@ class TestSoftmaxAPI_CompatibleWithTorch2(TestSoftmaxAPI):
                 np.testing.assert_allclose(out_ref, r.numpy(), rtol=1e-05)
 
             # explicitly use float32 for ROCm, as MIOpen does not yet support float64
-            if True:
+            if core.is_compiled_with_rocm():
                 out = func(x, dtype=np.float32)
                 out_ref = ref_softmax(
                     x_np,
@@ -964,12 +976,45 @@ class TestSoftmaxAPI_CompatibleWithTorch2(TestSoftmaxAPI):
             paddle.static.program_guard(paddle.static.Program()),
         ):
             x = paddle.static.data('X', [2, 3], 'float32')
-            self.assertRaises(TypeError, compat.softmax, x=x, axis=-1)
-            self.assertRaises(TypeError, compat.softmax, x=x, dim=-1)
-            self.assertRaises(TypeError, compat.softmax, input=x, axis=-1)
+            self.assertRaises(
+                TypeError, compat.nn.functional.softmax, x=x, axis=-1
+            )
+            self.assertRaises(
+                TypeError, compat.nn.functional.softmax, x=x, dim=-1
+            )
+            self.assertRaises(
+                TypeError, compat.nn.functional.softmax, input=x, axis=-1
+            )
 
             if core.is_compiled_with_cuda() or is_custom_device():
-                compat.softmax(input=x, dim=-1)
+                compat.nn.functional.softmax(input=x, dim=-1)
+
+
+class TestSoftmaxOCRNetAttentionShape(unittest.TestCase):
+    def test_axis_last_forward_and_backward_are_finite(self):
+        paddle.disable_static()
+        try:
+            x_np = np.random.uniform(-4.0, 4.0, [4, 36864, 2]).astype('float32')
+            x = paddle.to_tensor(x_np, stop_gradient=False)
+            out = F.softmax(x, axis=-1)
+            out_np = out.numpy()
+
+            self.assertFalse(np.isnan(out_np).any())
+            self.assertFalse(np.isinf(out_np).any())
+            np.testing.assert_allclose(
+                out_np.sum(axis=-1),
+                np.ones([4, 36864], dtype='float32'),
+                rtol=1e-5,
+                atol=1e-6,
+            )
+
+            loss = (out * x).sum()
+            loss.backward()
+            grad_np = x.grad.numpy()
+            self.assertFalse(np.isnan(grad_np).any())
+            self.assertFalse(np.isinf(grad_np).any())
+        finally:
+            paddle.enable_static()
 
 
 if __name__ == "__main__":

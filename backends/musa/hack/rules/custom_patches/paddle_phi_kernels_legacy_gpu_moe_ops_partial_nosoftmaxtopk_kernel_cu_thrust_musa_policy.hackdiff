@@ -1,0 +1,2 @@
+-thrust::cuda::par.on(stream)
++thrust::musa::par.on(stream)

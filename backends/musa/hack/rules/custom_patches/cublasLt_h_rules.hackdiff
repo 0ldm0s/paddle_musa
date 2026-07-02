@@ -1,0 +1,13 @@
+-#pragma once
++#pragma once
++#ifdef PADDLE_WITH_MUSA
++#include "mublasLt_dynload.h"
++#else
+ 
+-#undef DECLARE_DYNAMIC_LOAD_CUBLASLT_WRAP
+-}  // namespace dynload
+-}  // namespace phi
++#undef DECLARE_DYNAMIC_LOAD_CUBLASLT_WRAP
++}  // namespace dynload
++}  // namespace phi
++#endif // define PADDLE_WITH_MUSA

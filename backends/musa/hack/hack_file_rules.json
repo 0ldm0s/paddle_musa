@@ -1,0 +1,858 @@
+{
+  "files": [
+    {
+      "path": "/home/paddle_musa/Paddle/paddle/fluid/imperative/gradient_accumulator.cc",
+      "rules": [
+        "rules/custom_patches/home_paddle_musa_paddle_paddle_fluid_imperative_gradient_accumulator_cc.hackdiff"
+      ]
+    },
+    {
+      "path": "/home/paddle_musa/Paddle/paddle/phi/kernels/fusion/gpu/quant_utils.h",
+      "rules": [
+        "rules/custom_patches/home_paddle_musa_paddle_paddle_phi_kernels_fusion_gpu_quant_utils_h.hackdiff"
+      ]
+    },
+    {
+      "path": "/home/paddle_musa/Paddle/paddle/phi/kernels/legacy/gpu/moe_fuse_bwd_op.h",
+      "rules": [
+        "rules/custom_patches/home_paddle_musa_paddle_paddle_phi_kernels_legacy_gpu_moe_fuse_bwd_op_h.hackdiff"
+      ]
+    },
+    {
+      "path": "/home/paddle_musa/Paddle/paddle/phi/kernels/legacy/gpu/moe_fuse_op.h",
+      "rules": [
+        "rules/replacements/cuda_stream_t_to_musa_stream_t.json",
+        "rules/replacements/thrust_allocator_cuda_stream_t_to_musa_stream_t.json",
+        "rules/replacements/thrust_cuda_par_allocator_to_musa_par.json"
+      ]
+    },
+    {
+      "path": "/home/paddle_musa/Paddle/paddle/phi/kernels/legacy/gpu/moe_kernel_impl.h",
+      "rules": [
+        "rules/custom_patches/home_paddle_musa_paddle_paddle_phi_kernels_legacy_gpu_moe_kernel_impl_h.hackdiff"
+      ]
+    },
+    {
+      "path": "/home/paddle_musa/Paddle/paddle/phi/kernels/legacy/gpu/moe_ops_utils.h",
+      "rules": [
+        "rules/custom_patches/home_paddle_musa_paddle_paddle_phi_kernels_legacy_gpu_moe_ops_utils_h.hackdiff"
+      ]
+    },
+    {
+      "path": "/home/paddle_musa/Paddle/python/paddle/amp/auto_cast.py",
+      "rules": [
+        "rules/custom_patches/home_paddle_musa_paddle_python_paddle_amp_auto_cast_py.hackdiff"
+      ]
+    },
+    {
+      "path": "/home/paddle_musa/Paddle/python/paddle/distributed/fleet/utils/tensor_fusion_helper.py",
+      "rules": [
+        "rules/custom_patches/home_paddle_musa_paddle_python_paddle_distributed_fleet_utils_tensor_fusion_helper_py.hackdiff"
+      ]
+    },
+    {
+      "path": "CMakeLists.txt",
+      "rules": [
+        "rules/custom_patches/paddle_root_cmakelists_custom_device_cuda_language_option.hackdiff"
+      ]
+    },
+    {
+      "path": "paddle/common/backend_header.h",
+      "rules": [
+        "rules/custom_patches/paddle_common_backend_header_h.hackdiff"
+      ]
+    },
+    {
+      "path": "paddle/common/hostdevice.h",
+      "rules": [
+        "rules/custom_patches/paddle_common_hostdevice_h_legacy_patch.hackdiff"
+      ]
+    },
+    {
+      "path": "paddle/fluid/primitive/decomp_rule/decomp_rule/composite.h",
+      "rules": [
+        "rules/custom_patches/paddle_fluid_primitive_decomp_rule_composite_h_baddbmm.hackdiff"
+      ]
+    },
+    {
+      "path": "paddle/fluid/pybind/place.cc",
+      "rules": [
+        "rules/custom_patches/paddle_fluid_pybind_place_cc_cuda_place_custom_device.hackdiff"
+      ]
+    },
+    {
+      "path": "paddle/fluid/pybind/slice_utils.h",
+      "rules": [
+        "rules/custom_patches/paddle_fluid_pybind_slice_utils_h_custom_bool_index_gather.hackdiff"
+      ]
+    },
+    {
+      "path": "paddle/phi/CMakeLists.txt",
+      "rules": [
+        "rules/custom_patches/CMakeLists_rules.hackdiff"
+      ]
+    },
+    {
+      "path": "paddle/phi/backends/all_context.h",
+      "rules": [
+        "rules/replacements/paddle_with_cuda_to_musa.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/backends/custom/custom_context.cc",
+      "rules": [
+        "rules/replacements/cublas_handle_to_mublas_handle.json",
+        "rules/replacements/cublaslt_handle_to_mublaslt_handle.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/backends/custom/custom_context.h",
+      "rules": [
+        "rules/custom_patches/custom_context_rules.hackdiff",
+        "rules/replacements/cublas_handle_to_mublas_handle.json",
+        "rules/replacements/cublaslt_handle_to_mublaslt_handle.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/backends/device_memory_alignment.h",
+      "rules": [
+        "rules/custom_patches/device_memory_alignment_h_rules.hackdiff"
+      ]
+    },
+    {
+      "path": "paddle/phi/backends/dynload/cublasLt.h",
+      "rules": [
+        "rules/custom_patches/cublasLt_h_rules.hackdiff"
+      ]
+    },
+    {
+      "path": "paddle/phi/backends/gpu/cuda/cuda_device_function.h",
+      "rules": [
+        "rules/custom_patches/paddle_phi_backends_gpu_cuda_cuda_device_function_h_musa_include.hackdiff"
+      ]
+    },
+    {
+      "path": "paddle/phi/backends/gpu/forwards.h",
+      "rules": [
+        "rules/custom_patches/forwards_h_rules.hackdiff"
+      ]
+    },
+    {
+      "path": "paddle/phi/backends/gpu/gpu_context.h",
+      "rules": [
+        "rules/custom_patches/gpu_context_h_rules.hackdiff",
+        "rules/replacements/paddle_with_cuda_to_musa.json",
+        "rules/replacements/nccl_comm_to_mccl_comm.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/backends/gpu/gpu_decls.h",
+      "rules": [
+        "rules/custom_patches/gpu_decls_h_rules.hackdiff"
+      ]
+    },
+    {
+      "path": "paddle/phi/backends/gpu/gpu_device_function.h",
+      "rules": [
+        "rules/custom_patches/paddle_phi_backends_gpu_gpu_device_function_h_legacy_patch.hackdiff"
+      ]
+    },
+    {
+      "path": "paddle/phi/backends/gpu/gpu_dnn.h",
+      "rules": [
+        "rules/custom_patches/paddle_phi_backends_gpu_gpu_dnn_h_include.hackdiff",
+        "rules/replacements/paddle_with_cuda_to_musa.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/backends/gpu/gpu_helper.h",
+      "rules": [
+        "rules/custom_patches/paddle_phi_backends_gpu_gpu_helper_h_include.hackdiff",
+        "rules/replacements/paddle_with_cuda_to_musa.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/backends/gpu/gpu_info.h",
+      "rules": [
+        "rules/replacements/paddle_with_cuda_to_musa.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/backends/gpu/gpu_launch_config.h",
+      "rules": [
+        "rules/custom_patches/paddle_phi_backends_gpu_gpu_launch_config_h_legacy_patch.hackdiff"
+      ]
+    },
+    {
+      "path": "paddle/phi/backends/gpu/gpu_primitives.h",
+      "rules": [
+        "rules/custom_patches/cuda_h_include_to_musa_h.hackdiff",
+        "rules/replacements/paddle_with_cuda_to_musa.json",
+        "rules/replacements/cuda_to_musa.json",
+        "rules/replacements/hipcc_to_musacc.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/backends/gpu/gpu_types.h",
+      "rules": [
+        "rules/custom_patches/cuda_runtime_include_to_musa_runtime.hackdiff",
+        "rules/custom_patches/paddle_phi_backends_gpu_gpu_types_h.hackdiff",
+        "rules/replacements/paddle_with_cuda_to_musa.json",
+        "rules/replacements/cuda_to_musa.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/common/bfloat16.h",
+      "rules": [
+        "rules/custom_patches/paddle_phi_common_bfloat16_h.hackdiff"
+      ]
+    },
+    {
+      "path": "paddle/phi/common/complex.h",
+      "rules": [
+        "rules/custom_patches/cucomplex_include_to_mucomplex.hackdiff",
+        "rules/custom_patches/paddle_phi_common_complex_h.hackdiff",
+        "rules/replacements/paddle_with_cuda_to_musa.json",
+        "rules/replacements/cuda_arch_to_musacc.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/common/datatype_traits.h",
+      "rules": [
+        "rules/replacements/CUDA_to_MUSA.json",
+        "rules/replacements/nv_bfloat16_to_mt_bfloat16.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/common/float16.h",
+      "rules": [
+        "rules/custom_patches/paddle_phi_common_float16_h.hackdiff",
+        "rules/replacements/paddle_with_hip_to_musa.json",
+        "rules/replacements/hipcc_to_musacc.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/common/transform.h",
+      "rules": [
+        "rules/custom_patches/paddle_phi_common_transform_h.hackdiff"
+      ]
+    },
+    {
+      "path": "paddle/phi/core/device_context.h",
+      "rules": [
+        "rules/custom_patches/device_context_h_rules.hackdiff"
+      ]
+    },
+    {
+      "path": "paddle/phi/core/distributed/auto_parallel/reshard/reshard_utils.h",
+      "rules": [
+        "rules/replacements/paddle_with_cuda_to_musa.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/core/distributed/comm_context_manager.cc",
+      "rules": [
+        "rules/custom_patches/paddle_phi_core_distributed_comm_context_manager_cc_rules.hackdiff"
+      ]
+    },
+    {
+      "path": "paddle/phi/core/enforce.h",
+      "rules": [
+        "rules/custom_patches/paddle_phi_core_enforce_h.hackdiff",
+        "rules/replacements/asm_trap_to_assert_is_not_error.json",
+        "rules/replacements/cuda_arch_to_musacc.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/core/platform/device/gpu/gpu_info.cc",
+      "rules": [
+        "rules/replacements/paddle_with_cuda_to_musa.json",
+        "rules/replacements/cuda_driver_mem_to_musa.json",
+        "rules/replacements/cuda_success_to_musa_success.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/core/platform/device/gpu/gpu_info.h",
+      "rules": [
+        "rules/replacements/paddle_with_cuda_to_musa.json",
+        "rules/replacements/cuda_driver_mem_to_musa.json",
+        "rules/replacements/cuda_success_to_musa_success.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/core/platform/device/gpu/gpu_types.h",
+      "rules": [
+        "rules/custom_patches/paddle_phi_core_platform_device_gpu_gpu_types_h.hackdiff",
+        "rules/replacements/paddle_with_cuda_to_musa.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/autotune/gpu_timer.h",
+      "rules": [
+        "rules/custom_patches/cuda_runtime_include_to_musa_runtime.hackdiff",
+        "rules/replacements/cudart_cb_to_empty.json",
+        "rules/replacements/cuda_to_musa.json",
+        "rules/replacements/paddle_with_cuda_to_musa.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/flatten_kernel.cc",
+      "rules": [
+        "rules/replacements/paddle_with_cuda_to_musa.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/funcs/affine_grid_utils.h",
+      "rules": [
+        "rules/replacements/paddle_with_cuda_to_musa.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/funcs/blas/blas.h",
+      "rules": [
+        "rules/custom_patches/blas_impl_cu_include_to_mu.hackdiff",
+        "rules/replacements/paddle_with_cuda_to_musa.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/funcs/blas/blas_impl.h",
+      "rules": [
+        "rules/replacements/paddle_with_cuda_to_musa.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/funcs/blas/blaslt_impl.cu.h",
+      "rules": [
+        "rules/custom_patches/paddle_phi_kernels_funcs_blas_blaslt_impl_cu_h.hackdiff"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/funcs/cross_entropy.cu",
+      "rules": [
+        "rules/custom_patches/paddle_phi_kernels_funcs_cross_entropy_cu.hackdiff"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/funcs/cub.h",
+      "rules": [
+        "rules/custom_patches/paddle_phi_kernels_funcs_cub_h.hackdiff"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/funcs/cublaslt.h",
+      "rules": [
+        "rules/custom_patches/paddle_phi_kernels_funcs_cublaslt_h.hackdiff"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/funcs/detail/gru_gpu_kernel.h",
+      "rules": [
+        "rules/replacements/cuda_arch_700_to_musacc.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/funcs/dropout_impl.cu.h",
+      "rules": [
+        "rules/custom_patches/paddle_phi_kernels_funcs_dropout_impl_cu_h.hackdiff",
+        "rules/replacements/dropout_broken_memset_to_musa.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/funcs/fast_divmod.h",
+      "rules": [
+        "rules/custom_patches/paddle_phi_kernels_funcs_fast_divmod_h_musa_div.hackdiff"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/funcs/fft_cache.h",
+      "rules": [
+        "rules/custom_patches/cufft_util_include_to_mufft_util.hackdiff",
+        "rules/replacements/paddle_with_cuda_to_musa.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/funcs/im2col_slow.cuh",
+      "rules": [
+        "rules/replacements/cudacc_to_musacc.json",
+        "rules/replacements/cuda_stream_t_to_musa_stream_t.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/funcs/layer_norm_impl.cu.h",
+      "rules": [
+        "rules/custom_patches/paddle_phi_kernels_funcs_layer_norm_impl_cu_h.hackdiff"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/funcs/layer_norm_util.h",
+      "rules": [
+        "rules/replacements/paddle_with_cuda_to_musa.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/funcs/math_cuda_utils.h",
+      "rules": [
+        "rules/custom_patches/cuda_fp16_include_to_musa_fp16.hackdiff",
+        "rules/replacements/paddle_with_cuda_to_musa.json",
+        "rules/replacements/cuda_to_musa.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/funcs/math_function.h",
+      "rules": [
+        "rules/replacements/paddle_with_cuda_to_musa.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/funcs/pooling.h",
+      "rules": [
+        "rules/replacements/paddle_with_cuda_to_musa.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/funcs/reduce_function.h",
+      "rules": [
+        "rules/custom_patches/paddle_phi_kernels_funcs_reduce_function_h_musa_reduce_any.hackdiff"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/funcs/reduce_gpu_kernel.h",
+      "rules": [
+        "rules/custom_patches/paddle_phi_kernels_funcs_reduce_gpu_kernel_h_musa_block_width.hackdiff"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/funcs/select_impl.cu.h",
+      "rules": [
+        "rules/replacements/paddle_with_cuda_to_musa.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/funcs/send_recv_functor.h",
+      "rules": [
+        "rules/custom_patches/paddle_phi_kernels_funcs_send_recv_functor_h.hackdiff"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/funcs/softmax.h",
+      "rules": [
+        "rules/replacements/paddle_with_cuda_to_musa.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/funcs/sparse/softmax.cu.h",
+      "rules": [
+        "rules/replacements/cuda_to_musa.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/funcs/top_k_function_cuda.h",
+      "rules": [
+        "rules/replacements/cuda_version_to_musa_version.json",
+        "rules/replacements/paddle_with_cuda_to_musa.json",
+        "rules/replacements/cuda_to_musa.json",
+        "rules/replacements/cuda_arch_fp16_supported_to_paddle_with_musa.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/funcs/vol2col_slow.cuh",
+      "rules": [
+        "rules/replacements/cudacc_to_musacc.json",
+        "rules/replacements/cuda_stream_t_to_musa_stream_t.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/gpu/logsumexp_function.cu.h",
+      "rules": [
+        "rules/replacements/cuda_to_musa.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/legacy/gpu/moe_ops_partial_nosoftmaxtopk_kernel.cu",
+      "rules": [
+        "rules/replacements/thrust_cuda_par_to_musa_par.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/legacy/gpu/moe_ops_partial_nosoftmaxtopk_grad_kernel.cu",
+      "rules": [
+        "rules/replacements/thrust_cuda_par_to_musa_par.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/gpu/median_kernel.cu",
+      "rules": [
+        "rules/custom_patches/paddle_phi_kernels_gpu_median_kernel_cu_thrust_musa_policy.hackdiff"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/gpu/nanmedian_kernel.cu",
+      "rules": [
+        "rules/custom_patches/paddle_phi_kernels_gpu_nanmedian_kernel_cu_thrust_musa_policy.hackdiff"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/gpu/std_var_kernel.cu",
+      "rules": [
+        "rules/custom_patches/paddle_phi_kernels_gpu_std_var_kernel_cu_musa_compile.hackdiff"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/gpu/p_norm_kernel.cu",
+      "rules": [
+        "rules/replacements/paddle_with_cuda_to_musa.json",
+        "rules/custom_patches/paddle_phi_kernels_gpu_p_norm_kernel_cu_musa_double_generic_path.hackdiff"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/gpu/reduce.h",
+      "rules": [
+        "rules/replacements/paddle_with_cuda_to_musa.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/gpu/reduce_grad.h",
+      "rules": [
+        "rules/replacements/paddle_with_cuda_to_musa.json",
+        "rules/replacements/reduce_grad_common_ddim_helpers.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/gpu/shuffle_batch_utils.h",
+      "rules": [
+        "rules/replacements/paddle_with_cuda_to_musa.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/gpudnn/softmax_gpudnn.h",
+      "rules": [
+        "rules/custom_patches/paddle_phi_kernels_gpudnn_softmax_gpudnn_h.hackdiff"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/group_norm_kernel.h",
+      "rules": [
+        "rules/replacements/paddle_with_cuda_to_musa.json",
+        "rules/custom_patches/paddle_phi_kernels_group_norm_kernel_h_musa_includes.hackdiff"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/impl/clip_by_norm_kernel_impl.h",
+      "rules": [
+        "rules/custom_patches/paddle_phi_kernels_impl_clip_by_norm_kernel_impl_h.hackdiff"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/impl/cross_entropy2_kernel_impl.h",
+      "rules": [
+        "rules/custom_patches/paddle_phi_kernels_impl_cross_entropy2_kernel_impl_h.hackdiff"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/impl/dirichlet_kernel_impl.h",
+      "rules": [
+        "rules/custom_patches/curand_kernel_include_to_murand_kernel.hackdiff",
+        "rules/custom_patches/paddle_phi_kernels_impl_dirichlet_kernel_impl_h.hackdiff",
+        "rules/replacements/paddle_with_cuda_to_musa.json",
+        "rules/replacements/curand_to_murand.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/impl/isclose_kernel_impl.h",
+      "rules": [
+        "rules/replacements/cuda_memset_to_musa_memset.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/impl/matmul_kernel_impl.h",
+      "rules": [
+        "rules/custom_patches/paddle_phi_kernels_impl_matmul_kernel_impl_h.hackdiff"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/impl/sparse_momentum_kernel_impl.h",
+      "rules": [
+        "rules/custom_patches/paddle_phi_kernels_impl_sparse_momentum_kernel_impl_h_musa_custom_place.hackdiff"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/impl/segment_pool_kernel_impl.h",
+      "rules": [
+        "rules/replacements/paddle_with_cuda_to_musa.json",
+        "rules/replacements/cuda_to_musa.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/impl/spectral_norm_grad_kernel_impl.h",
+      "rules": [
+        "rules/custom_patches/paddle_phi_kernels_impl_spectral_norm_grad_kernel_impl_h_blas_wait.hackdiff"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/impl/spectral_norm_kernel_impl.h",
+      "rules": [
+        "rules/custom_patches/paddle_phi_kernels_impl_spectral_norm_kernel_impl_h_blas_wait.hackdiff"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/gpu/grid_sample_grad_kernel.cu",
+      "rules": [
+        "rules/custom_patches/paddle_phi_kernels_gpu_grid_sample_grad_kernel_cu_disable_cudnn_on_musa.hackdiff"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/impl/gammaincc_grad_kernel_impl.h",
+      "rules": [
+        "rules/custom_patches/paddle_phi_kernels_impl_gammaincc_grad_kernel_impl_h_tgamma_to_lgamma.hackdiff"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/impl/weight_quantize_kernel_gpu_impl.h",
+      "rules": [
+        "rules/custom_patches/paddle_phi_kernels_impl_weight_quantize_kernel_gpu_impl_h.hackdiff"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/is_empty_kernel.cc",
+      "rules": [
+        "rules/replacements/paddle_with_cuda_to_musa.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/layer_norm_kernel.h",
+      "rules": [
+        "rules/replacements/paddle_with_cuda_to_musa.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/legacy/gpu/layer_norm_cuda_kernel.h",
+      "rules": [
+        "rules/custom_patches/layer_norm_cuda_kernel_musa_includes.hackdiff",
+        "rules/replacements/cuda_to_musa.json",
+        "rules/replacements/cuda_stream_t_to_stream_stream_t.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/npu_identity_kernel.cc",
+      "rules": [
+        "rules/replacements/paddle_with_cuda_to_musa.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/primitive/compute_primitives.h",
+      "rules": [
+        "rules/custom_patches/paddle_phi_kernels_primitive_compute_primitives_h_legacy_patch.hackdiff",
+        "rules/replacements/paddle_with_cuda_to_musa.json",
+        "rules/replacements/paddle_phi_kernels_primitive_compute_primitives_h_replay_compat.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/primitive/reduce_primitives.h",
+      "rules": [
+        "rules/replacements/paddle_with_cuda_to_musa.json",
+        "rules/custom_patches/paddle_phi_kernels_primitive_reduce_primitives_h_inline_pow.hackdiff"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/reduce_amax_kernel.cc",
+      "rules": [
+        "rules/replacements/paddle_with_cuda_to_musa.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/reduce_amin_kernel.cc",
+      "rules": [
+        "rules/replacements/paddle_with_cuda_to_musa.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/reduce_any_kernel.cc",
+      "rules": [
+        "rules/replacements/paddle_with_cuda_to_musa.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/reduce_min_kernel.cc",
+      "rules": [
+        "rules/replacements/paddle_with_cuda_to_musa.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/reduce_sum_kernel.cc",
+      "rules": [
+        "rules/replacements/paddle_with_cuda_to_musa.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/sparse/gpu/conv.cu.h",
+      "rules": [
+        "rules/replacements/cuda_to_musa.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/sparse/gpu/pool_kernel.cu",
+      "rules": [
+        "rules/replacements/cuda_to_musa.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/sparse/gpu/softmax_grad_kernel.cu",
+      "rules": [
+        "rules/replacements/paddle_with_hip_to_musa.json",
+        "rules/replacements/hip_to_musa.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/squeeze_grad_kernel.cc",
+      "rules": [
+        "rules/replacements/paddle_with_cuda_to_musa.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/squeeze_kernel.cc",
+      "rules": [
+        "rules/replacements/paddle_with_cuda_to_musa.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/unsqueeze_grad_kernel.cc",
+      "rules": [
+        "rules/replacements/paddle_with_cuda_to_musa.json"
+      ]
+    },
+    {
+      "path": "paddle/phi/kernels/unsqueeze_kernel.cc",
+      "rules": [
+        "rules/replacements/paddle_with_cuda_to_musa.json"
+      ]
+    },
+    {
+      "path": "python/paddle/distributed/collective.py",
+      "rules": [
+        "rules/custom_patches/python_paddle_distributed_collective_py_rules.hackdiff"
+      ]
+    },
+    {
+      "path": "python/paddle/nn/functional/flash_attention.py",
+      "rules": [
+        "rules/custom_patches/python_paddle_nn_functional_flash_attention_py_rules.hackdiff"
+      ]
+    },
+    {
+      "path": "python/paddle/utils/cpp_extension/__init__.py",
+      "rules": [
+        "rules/custom_patches/python_paddle_utils_cpp_extension___init___py_rules.hackdiff"
+      ]
+    },
+    {
+      "path": "python/paddle/utils/cpp_extension/cpp_extension.py",
+      "rules": [
+        "rules/custom_patches/python_paddle_utils_cpp_extension_cpp_extension_py_rules.hackdiff"
+      ]
+    },
+    {
+      "path": "python/paddle/utils/cpp_extension/extension_utils.py",
+      "rules": [
+        "rules/replacements/paddle_with_cuda_to_musa.json",
+        "rules/custom_patches/python_paddle_utils_cpp_extension_extension_utils_py_rules.hackdiff"
+      ]
+    },
+    {
+      "path": "test/legacy_test/auto_parallel_op_test.py",
+      "rules": [
+        "rules/custom_patches/test_legacy_test_auto_parallel_op_test_py_rules.hackdiff"
+      ]
+    },
+    {
+      "path": "test/legacy_test/op_test.py",
+      "rules": [
+        "rules/replacements/cuda_visible_devices_to_musa_visible_devices.json",
+        "rules/custom_patches/test_legacy_test_op_test_py_rules.hackdiff"
+      ]
+    },
+    {
+      "path": "third_party/eigen3/Eigen/Core",
+      "rules": [
+        "rules/custom_patches/eigen_core_legacy_patch.hackdiff"
+      ]
+    },
+    {
+      "path": "third_party/eigen3/Eigen/src/Core/arch/SSE/Complex.h",
+      "rules": [
+        "rules/custom_patches/eigen_complex_h_legacy_patch.hackdiff"
+      ]
+    },
+    {
+      "path": "third_party/eigen3/Eigen/src/Core/util/ConfigureVectorization.h",
+      "rules": [
+        "rules/custom_patches/eigen_src_core_util_configure_vectorization_h_legacy_patch.hackdiff"
+      ]
+    },
+    {
+      "path": "third_party/eigen3/Eigen/src/Core/util/Macros.h",
+      "rules": [
+        "rules/custom_patches/eigen_src_core_util_macros_h_legacy_patch.hackdiff"
+      ]
+    },
+    {
+      "path": "third_party/eigen3/Eigen/src/Core/util/Meta.h",
+      "rules": [
+        "rules/custom_patches/eigen_src_core_util_meta_h_legacy_patch.hackdiff"
+      ]
+    },
+    {
+      "path": "third_party/eigen3/unsupported/Eigen/CXX11/Tensor",
+      "rules": [
+        "rules/custom_patches/eigen_unsupported_cxx11_tensor_legacy_patch.hackdiff"
+      ]
+    },
+    {
+      "path": "third_party/eigen3/unsupported/Eigen/CXX11/src/Tensor/TensorContractionGpu.h",
+      "rules": [
+        "rules/custom_patches/eigen_unsupported_cxx11_src_tensor_tensor_contraction_gpu_h_legacy_patch.hackdiff"
+      ]
+    },
+    {
+      "path": "third_party/eigen3/unsupported/Eigen/CXX11/src/Tensor/TensorDeviceDefault.h",
+      "rules": [
+        "rules/custom_patches/eigen_unsupported_cxx11_src_tensor_tensor_device_default_h_legacy_patch.hackdiff"
+      ]
+    },
+    {
+      "path": "third_party/eigen3/unsupported/Eigen/CXX11/src/Tensor/TensorDeviceGpu.h",
+      "rules": [
+        "rules/custom_patches/eigen_unsupported_cxx11_src_tensor_tensor_device_gpu_h_legacy_patch.hackdiff"
+      ]
+    },
+    {
+      "path": "third_party/eigen3/unsupported/Eigen/CXX11/src/Tensor/TensorGpuHipCudaDefines.h",
+      "rules": [
+        "rules/custom_patches/eigen_unsupported_cxx11_src_tensor_tensor_gpu_hip_cuda_defines_h_legacy_patch.hackdiff"
+      ]
+    },
+    {
+      "path": "third_party/eigen3/unsupported/Eigen/CXX11/src/Tensor/TensorRandom.h",
+      "rules": [
+        "rules/custom_patches/eigen_tensor_random_h_legacy_patch.hackdiff"
+      ]
+    },
+    {
+      "path": "third_party/eigen3/unsupported/Eigen/CXX11/src/Tensor/TensorReduction.h",
+      "rules": [
+        "rules/custom_patches/eigen_unsupported_cxx11_src_tensor_tensor_reduction_h_legacy_patch.hackdiff"
+      ]
+    },
+    {
+      "path": "paddle/phi/common/memory_utils.h",
+      "rules": [
+        "rules/custom_patches/paddle_phi_common_memory_utils_h_musa_gpu_memory_usage.hackdiff"
+      ]
+    },
+    {
+      "path": "python/requirements.txt",
+      "rules": [
+        "rules/custom_patches/python_requirements_numpy_1_23_5.hackdiff"
+      ]
+    }
+  ]
+}

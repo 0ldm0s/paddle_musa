@@ -1,0 +1,9 @@
+-#pragma once
++#pragma once
++#ifdef PADDLE_WITH_MUSA
++#include "musa_send_recv_functor.h"
++#else
+
+-}  // namespace phi
++}  // namespace phi
++#endif

@@ -1,0 +1,4 @@
+-#else
+-#include "paddle/phi/backends/gpu/cuda/cuda_device_function.h"
++#else
++#include "musa_device_function.h"

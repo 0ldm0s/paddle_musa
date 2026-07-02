@@ -1,0 +1,69 @@
+-    return dst_var;                                                  \
+-  }
+-
+-#if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
+-  if (phi::is_gpu_place(place)) {
+-    PADDLE_SELECTED_ROWS_ADD(phi::GPUContext, float);
++    return dst_var;                                                  \
++  }
++
++#define PADDLE_SELECTED_ROWS_ADD_CUSTOM_CPU_FALLBACK(cpp_type)           \
++  if (data_type == framework::DataTypeTrait<cpp_type>::DataType()) {     \
++    auto cpu_place = phi::CPUPlace();                                    \
++    auto* cpu_ctx = dynamic_cast<phi::CPUContext*>(pool.Get(cpu_place)); \
++    PADDLE_ENFORCE_NOT_NULL(                                             \
++        cpu_ctx,                                                         \
++        common::errors::PreconditionNotMet("CPUContext is nullptr."));   \
++                                                                         \
++    phi::SelectedRows cpu_src1;                                          \
++    phi::SelectedRows cpu_src2;                                          \
++                                                                         \
++    cpu_src1.set_rows(src_selected_rows1.rows());                        \
++    cpu_src1.set_height(src_selected_rows1.height());                    \
++    auto* cpu_value1 = cpu_src1.mutable_value();                         \
++    phi::Copy(*cpu_ctx,                                                  \
++              src_selected_rows1.value(),                                \
++              cpu_place,                                                 \
++              false,                                                     \
++              cpu_value1);                                               \
++                                                                         \
++    cpu_src2.set_rows(src_selected_rows2.rows());                        \
++    cpu_src2.set_height(src_selected_rows2.height());                    \
++    auto* cpu_value2 = cpu_src2.mutable_value();                         \
++    phi::Copy(*cpu_ctx,                                                  \
++              src_selected_rows2.value(),                                \
++              cpu_place,                                                 \
++              false,                                                     \
++              cpu_value2);                                               \
++                                                                         \
++    std::vector<const phi::SelectedRows*> cpu_inputs;                    \
++    cpu_inputs.emplace_back(&cpu_src1);                                  \
++    cpu_inputs.emplace_back(&cpu_src2);                                  \
++                                                                         \
++    phi::SelectedRows cpu_out;                                           \
++    phi::funcs::scatter::MergeAdd<phi::CPUContext, cpp_type> merge_add;  \
++    merge_add(*cpu_ctx, cpu_inputs, &cpu_out);                           \
++                                                                         \
++    dst_selected_rows->set_rows(cpu_out.rows());                         \
++    dst_selected_rows->set_height(cpu_out.height());                     \
++                                                                         \
++    auto* custom_ctx = pool.Get(place);                                  \
++    phi::Copy(*custom_ctx,                                               \
++              cpu_out.value(),                                           \
++              place,                                                     \
++              false,                                                     \
++              dst_selected_rows->mutable_value());                       \
++                                                                         \
++    return dst_var;                                                      \
++  }
++
++if (phi::is_custom_place(place)) {
++  PADDLE_SELECTED_ROWS_ADD_CUSTOM_CPU_FALLBACK(float);
++  PADDLE_SELECTED_ROWS_ADD_CUSTOM_CPU_FALLBACK(double);
++}
++
++#undef PADDLE_SELECTED_ROWS_ADD_CUSTOM_CPU_FALLBACK
++
++#if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
++  if (phi::is_gpu_place(place)) {
++    PADDLE_SELECTED_ROWS_ADD(phi::GPUContext, float);

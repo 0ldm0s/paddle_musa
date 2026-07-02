@@ -62,7 +62,7 @@ void RMSLnFwd(const Context &dev_ctx,
   }
   invvar->Resize({rows});
   dev_ctx.template Alloc<float>(invvar);
-  cuda_rms_norm<T, Context>(dev_ctx, x, scale, rows, cols, epsilon, y, invvar);
+  musa_rms_norm<T, Context>(dev_ctx, x, scale, rows, cols, epsilon, y, invvar);
 }
 
 template <typename T, typename Context>
@@ -87,7 +87,7 @@ void RMSLnBwd(const Context &dev_ctx,
           "The dtype of scale must be FLOAT32, BFLOAT16, but got [%s]",
           scale.dtype()));
     }
-    cuda_rms_norm_gradient<T, Context>(dev_ctx,
+    musa_rms_norm_gradient<T, Context>(dev_ctx,
                                        x,
                                        scale,
                                        invvar,
@@ -102,7 +102,7 @@ void RMSLnBwd(const Context &dev_ctx,
     if (scale.dtype() == phi::DataType::BFLOAT16) {
       DenseTensor scale_grad_tmp =
           phi::EmptyLike<phi::bfloat16, Context>(dev_ctx, scale);
-      cuda_rms_norm_gradient<T, Context>(dev_ctx,
+      musa_rms_norm_gradient<T, Context>(dev_ctx,
                                          x,
                                          scale,
                                          invvar,
@@ -115,7 +115,7 @@ void RMSLnBwd(const Context &dev_ctx,
     } else if (scale.dtype() == phi::DataType::FLOAT32) {
       DenseTensor scale_grad_tmp =
           phi::EmptyLike<float, Context>(dev_ctx, scale);
-      cuda_rms_norm_gradient<T, Context>(dev_ctx,
+      musa_rms_norm_gradient<T, Context>(dev_ctx,
                                          x,
                                          scale,
                                          invvar,

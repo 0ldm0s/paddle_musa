@@ -1,0 +1,34 @@
+-DECLARE_FUNCTION_FOR_GPU(gpuGraphGetNodes, cudaGraphGetNodes, hipGraphGetNodes);
+-DECLARE_FUNCTION_FOR_GPU(gpuGraphGetEdges, cudaGraphGetEdges, hipGraphGetEdges);
+-DECLARE_FUNCTION_FOR_GPU(gpuGraphLaunch, cudaGraphLaunch, hipGraphLaunch);
+-DECLARE_FUNCTION_FOR_GPU(gpuGraphDestroy, cudaGraphDestroy, hipGraphDestroy);
++inline musaError_t musaEventCreateWithFlagsHost(musaEvent_t *e, unsigned int flags) {
++    return musaEventCreateWithFlags(e, flags);
++}
++
++inline musaError_t musaEventRecordHost(musaEvent_t e, musaStream_t s) {
++    return musaEventRecord(e, s);
++}
++
++inline musaError_t musaEventDestroyHost(musaEvent_t e) {
++    return musaEventDestroy(e);
++}
++
++DECLARE_FUNCTION_FOR_GPU(gpuGraphGetNodes, musaGraphGetNodes, hipGraphGetNodes);
++DECLARE_FUNCTION_FOR_GPU(gpuGraphGetEdges, musaGraphGetEdges, hipGraphGetEdges);
++DECLARE_FUNCTION_FOR_GPU(gpuGraphLaunch, musaGraphLaunch, hipGraphLaunch);
++DECLARE_FUNCTION_FOR_GPU(gpuGraphDestroy, musaGraphDestroy, hipGraphDestroy);
+
+-DECLARE_FUNCTION_FOR_GPU(gpuEventCreateWithFlags,
+-                         cudaEventCreateWithFlags,
+-                         hipEventCreateWithFlags);
++DECLARE_FUNCTION_FOR_GPU(gpuEventCreateWithFlags,
++                         musaEventCreateWithFlagsHost,
++                         hipEventCreateWithFlags);
+
+-DECLARE_FUNCTION_FOR_GPU(gpuEventRecord, cudaEventRecord, hipEventRecord);
+-DECLARE_FUNCTION_FOR_GPU(gpuEventDestroy, cudaEventDestroy, hipEventDestroy);
+-DECLARE_FUNCTION_FOR_GPU(gpuEventQuery, cudaEventQuery, hipEventQuery);
++DECLARE_FUNCTION_FOR_GPU(gpuEventRecord, musaEventRecordHost, hipEventRecord);
++DECLARE_FUNCTION_FOR_GPU(gpuEventDestroy, musaEventDestroyHost, hipEventDestroy);
++DECLARE_FUNCTION_FOR_GPU(gpuEventQuery, musaEventQuery, hipEventQuery);

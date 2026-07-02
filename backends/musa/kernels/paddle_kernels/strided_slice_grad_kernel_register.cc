@@ -21,6 +21,49 @@
 #include "paddle/phi/kernels/strided_slice_grad_kernel.h"
 #include "paddle/phi/core/kernel_registry.h"
 
+namespace phi {
+
+template <typename T, typename Context>
+void StridedSliceGradKernel(const Context& dev_ctx,
+                            const DenseTensor& x,
+                            const DenseTensor& out_grad,
+                            const std::vector<int>& axes,
+                            const IntArray& starts,
+                            const IntArray& ends,
+                            const IntArray& strides,
+                            DenseTensor* x_grad) {
+  std::vector<int> infer_flags(axes.size(), 1);
+  std::vector<int> decrease_axis;
+  StridedSliceRawGradKernel<T, Context>(dev_ctx,
+                                        x,
+                                        out_grad,
+                                        axes,
+                                        starts,
+                                        ends,
+                                        strides,
+                                        infer_flags,
+                                        decrease_axis,
+                                        x_grad);
+}
+
+}  // namespace phi
+
+PD_CUSTOM_KERNEL_REGISTER(strided_slice_grad,
+                   musa,
+                   ALL_LAYOUT,
+                   phi::StridedSliceGradKernel,
+                   bool,
+                   int,
+                   int8_t,
+                   int16_t,
+                   int64_t,
+                   float,
+                   double,
+                   phi::float16,
+                   phi::bfloat16,
+                   phi::complex64,
+                   phi::complex128) {}
+
 PD_CUSTOM_KERNEL_REGISTER(strided_slice_raw_grad,
                    musa,
                    ALL_LAYOUT,

@@ -1,0 +1,2 @@
+-#include "paddle/phi/kernels/funcs/blas/blas_impl.cu.h"
++#include "blas_impl.mu.h"

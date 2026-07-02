@@ -1,0 +1,8 @@
+-#if defined(__CUDACC__) || defined(__HIPCC__)
++#if defined(__CUDACC__) || defined(__HIPCC__) || defined(__MUSACC__)
+
+-  return std::sqrt(val);
++  return sqrt(val);
+
+-#if defined(__CUDACC__) || defined(__HIPCC__)
++#if defined(__CUDACC__) || defined(__HIPCC__) || defined(__MUSACC__)

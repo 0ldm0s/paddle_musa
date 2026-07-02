@@ -44,12 +44,12 @@ popd
 export PYTHONPATH="../../python/tests/"
 python tests/unittests/test_flash_attention_musa.py
 python tests/unittests/test_take_along_axis_op.py
-#python tests/unittests/test_cross_entropy_op.py #need to fix accuracy
 pytest tests/unittests/test_matmul_v2_op.py
 pytest tests/unittests/test_matmul_op_musa.py
 pytest tests/unittests/test_einsum_op_v2_musa.py
 pytest tests/unittests/test_softmax_op_musa.py
 pytest tests/unittests/test_scatter_op_musa.py
+python tests/unittests/test_gather_op_musa.py
 pytest tests/unittests/test_log_softmax_op_dynamic_musa.py
 python tests/unittests/test_log_softmax_op_static_musa.py
 python tests/unittests/test_weight_only_linear_musa.py
@@ -59,6 +59,77 @@ pytest tests/unittests/test_group_norm_musa.py::TestGroupNormAPIV2_With_NCHW # o
 pytest tests/unittests/test_batch_norm_op.py
 pytest tests/unittests/test_top_k_v2_op_musa.py
 python3 tests/unittests/test_conv2d_op.py
+python tests/unittests/test_compare_op_musa.py
+python tests/unittests/test_adadelta_op_musa.py
+python tests/unittests/test_bincount_op_musa.py
+python tests/unittests/test_sgd_op_musa.py
+python tests/unittests/test_randperm_op_musa.py
+pytest tests/unittests/test_prelu_op_musa.py
+python tests/unittests/test_ir_fusion_group_pass_musa.py
+
+# UTs for completed MUSA kernel registrations tracked in
+# unregistered_gpu_kernels_by_complexity.md.
+pytest tests/unittests/test_cuda_gemm_op_musa.py
+pytest tests/unittests/test_dequantize_linear_op_musa.py
+pytest tests/unittests/test_expand_stride_op_musa.py
+pytest tests/unittests/test_fetch_barrier_op_musa.py
+pytest tests/unittests/test_fp8_quant_blockwise_op_musa.py
+pytest tests/unittests/test_lars_momentum_op_musa.py
+pytest tests/unittests/test_legacy_crop_op_musa.py
+pytest tests/unittests/test_legacy_expand_op_musa.py
+pytest tests/unittests/test_legacy_crop_expand_grad_op_musa.py
+pytest tests/unittests/test_legacy_generate_proposals_op_musa.py
+pytest tests/unittests/test_legacy_matmul_op_musa.py
+pytest tests/unittests/test_load_op_musa.py
+pytest tests/unittests/test_load_combine_op_musa.py
+pytest tests/unittests/test_median_op_musa.py
+pytest tests/unittests/test_nanmedian_op_musa.py
+pytest tests/unittests/test_moe_combine_op_musa.py
+pytest tests/unittests/test_moe_gate_dispatch_and_quant_op_musa.py
+pytest tests/unittests/test_moe_gate_dispatch_partial_nosoftmaxtopk_op_musa.py
+pytest tests/unittests/test_moe_permute_op_musa.py
+pytest tests/unittests/test_moe_unpermute_op_musa.py
+pytest tests/unittests/test_multiclass_nms3_op_musa.py
+pytest tests/unittests/test_quant_linear_op_musa.py
+pytest tests/unittests/test_save_combine_op_musa.py
+pytest tests/unittests/test_slogdet_op_musa.py
+pytest tests/unittests/test_strided_elementwise_copy_op_musa.py
+pytest tests/unittests/test_yolo_box_head_post_op_musa.py
+pytest tests/unittests/test_ap_variadic_op_musa.py
+pytest tests/unittests/test_partial_send_recv_op_musa.py
+pytest tests/unittests/test_rprop_op_musa.py
+pytest tests/unittests/test_embedding_grad_add_to_op_musa.py
+pytest tests/unittests/test_embedding_with_scaled_gradient_grad_op_musa.py
+pytest tests/unittests/test_gammaincc_grad_op_musa.py
+pytest tests/unittests/test_moe_combine_grad_op_musa.py
+pytest tests/unittests/test_moe_gate_dispatch_partial_nosoftmaxtopk_grad_op_musa.py
+pytest tests/unittests/test_random_grad_op_musa.py
+pytest tests/unittests/test_send_u_recv_grad_op_musa.py
+pytest tests/unittests/test_send_ue_recv_grad_op_musa.py
+pytest tests/unittests/test_straight_through_estimator_grad_op_musa.py
+pytest tests/unittests/test_transpose_grad_op_musa.py
+pytest tests/unittests/test_dist_concat_op_musa.py
+pytest tests/unittests/test_solve_op_musa.py
+pytest tests/unittests/test_graph_sample_neighbors_op_musa.py
+pytest tests/unittests/test_weighted_sample_neighbors_op_musa.py
+pytest tests/unittests/test_collective_extra_op_musa.py
+pytest tests/unittests/test_lu_grad_op_musa.py
+pytest tests/unittests/test_eigh_grad_op_musa.py
+pytest tests/unittests/test_qr_grad_op_musa.py
+pytest tests/unittests/test_svd_grad_op_musa.py
+pytest tests/unittests/test_interp_antialias_op_musa.py
+pytest tests/unittests/test_fast_ln_op_musa.py
+pytest tests/unittests/test_sequence_uniform_op_musa.py
+pytest tests/unittests/test_linalg_norm_extra_op_musa.py
+pytest tests/unittests/test_selected_rows_grad_extra_op_musa.py
+pytest tests/unittests/test_sequence_softmax_grad_op_musa.py
+pytest tests/unittests/test_norm_roi_extra_op_musa.py
+pytest tests/unittests/test_roi_abs_grad_extra_op_musa.py
+pytest tests/unittests/test_sparse_basic_extra_op_musa.py
+pytest tests/unittests/test_fusion_sparse_extra_op_musa.py
+pytest tests/unittests/test_sparse_grad_extra_op_musa.py
+pytest tests/unittests/test_sparse_norm_values_extra_op_musa.py
+pytest tests/unittests/test_selected_rows_basic_op_musa.py
 }
 
 main() {
@@ -71,7 +142,10 @@ main() {
     pushd ${PADDLE_OFFICIAL_UT_DIR}/legacy_test
     
     export PYTHONPATH="$PWD"
-
+    
+    pytest test_newprofiler.py
+    pytest test_newprofiler_helper.py
+    
     pytest test_matmul_out.py
     pytest test_unsqueeze2_op.py
     pytest test_squeeze2_op.py
@@ -92,7 +166,6 @@ main() {
     pytest test_number_count_op.py
     pytest test_sparse_momentum_op.py
     pytest test_stft_op.py
-    # pytest test_cross_entropy2_op.py # need to fix accuracy
     pytest test_shape_op.py 
     pytest test_is_empty_op.py
     pytest test_reverse_op.py
@@ -135,7 +208,7 @@ main() {
     python test_segment_ops.py
     pytest test_shuffle_channel_op.py
     python test_split_op.py
-    # pytest test_squared_l2_norm_op.py
+    pytest test_squared_l2_norm_op.py
     pytest test_stack_op.py
     python test_tile_op.py
     python test_trace_op.py
@@ -163,7 +236,7 @@ main() {
     python test_sign_op.py
     pytest test_lgamma_op.py
     python test_logical_op.py
-    # pytest test_pad_op.py
+    pytest test_pad_op.py
     pytest test_scale_op.py
     pytest test_set_value_op.py
     pytest test_uniform_random_op.py
@@ -228,12 +301,16 @@ main() {
     pytest test_limit_by_capacity_op.py
     python test_histogram_op.py
     python test_generate_proposals_v2_op.py
-    pytest test_unique.py
+    
+    pytest test_unique.py -k "not TestUniqueAPI_Compatibility"
+    pytest test_diagonal_op.py
+    pytest test_cvm_op.py
+    pytest test_box_clip_op.py
     python test_atan2_op.py
     pytest test_affine_channel_op.py
     pytest test_accuracy_op.py
     python test_gather_nd_op.py
-   
+
     pytest test_dropout_op.py::TestDropoutOp
     pytest test_dropout_op.py::TestDropoutOpWithSeed
     pytest test_dropout_op.py::TestDropoutOp_ZeroDim
@@ -247,7 +324,7 @@ main() {
     pytest test_dropout_op.py::TestDropout1DFAPIError
     pytest test_dropout_op.py::TestDropout2DFAPIError
     pytest test_dropout_op.py::TestDropout3DFAPIError
-    #pytest test_repeat_interleave_op.py # have passed in musa-4.3.3
+    pytest test_repeat_interleave_op.py
     pytest test_gelu_op.py
     pytest test_nn_functional_embedding_dygraph.py
     python test_nn_functional_embedding_static.py
@@ -260,6 +337,53 @@ main() {
     pytest test_top_p_sampling.py
     pytest test_fused_bias_act_op.py
     pytest test_rms_norm_op.py -k "not test_rms_norm_backward"
+    pytest test_affine_grid_op.py
+    pytest test_allclose_op.py
+    pytest test_complex_view_op.py
+    pytest test_assign_pos_op.py
+    pytest test_auc_op.py
+    pytest test_batch_fc_op.py
+    pytest test_bernoulli_op.py
+    pytest test_coalesce_tensor_op.py
+    pytest test_real_imag_op.py
+    pytest test_cross_entropy2_op.py
+    pytest test_ctc_align.py
+    pytest test_cumprod_op.py
+    pytest test_dist_op.py
+    pytest test_distribute_fpn_proposals_op.py
+    python test_flatten_contiguous_range_op.py
+    pytest test_ftrl_op.py
+    pytest test_norm_all.py -k Frobenius
+    pytest test_gather_tree_op.py
+    pytest test_graph_reindex.py
+    pytest test_gru_unit_op.py
+    pytest test_isclose_op.py -k "not TestIscloseCompatibility"
+    pytest test_kron_op.py -k "not TestKronOp_ZeroSize" # TODO: CI numpy version will fail on this test, fix later
+    pytest test_kthvalue_op.py
+    pytest test_logsumexp.py
+    pytest test_lrn_op.py
+    pytest test_lstm_op.py
+    pytest test_margin_cross_entropy_op.py
+    pytest test_tril_triu_op.py
+    pytest test_transfer_layout_op.py
+    python test_sigmoid_cross_entropy_with_logits_op.py
+    pytest test_shard_index_op.py
+    pytest test_rank_attention_op.py
+    pytest test_random_routing_op.py
+    pytest test_prune_gate_by_capacity_op.py
+    pytest test_prior_box_op.py
+    pytest test_number_count_op.py
+    python test_norm_op.py
+    python test_nll_loss.py
+    pytest test_index_select_op.py -k "not TestIndexSelectAPI"
+    pytest test_index_select_op.py -k "TestIndexSelectAPI"
+    pytest test_spectral_norm_op.py
+    pytest test_roi_pool_op.py
+    pytest test_collect_fpn_proposals_op.py
+    # python test_incubate_moe_combine_no_weight.py #TODO look into put op in ref calculation
+    python test_incubate_moe_gate_dispatch_w_permute.py
+    python test_incubate_moe_gate_dispatch_w_permute_bwd.py
+    python test_incubate_int_bincount.py
     popd
 
     pushd ${PADDLE_OFFICIAL_UT_DIR}/collective/fleet
@@ -277,6 +401,7 @@ main() {
     pytest test_global_gather_translator.py
     pytest test_nop_translator.py
     pytest test_barrier_translator.py
+    pytest test_distributed_fused_lamb_init.py
     popd
 
     pushd ${PADDLE_OFFICIAL_UT_DIR}/quantization
@@ -294,6 +419,11 @@ main() {
     pushd ${PADDLE_OFFICIAL_UT_DIR}/dygraph_to_static
     export PYTHONPATH="$PWD"
     pytest test_contiguous.py
+    popd
+
+    pushd ${PADDLE_OFFICIAL_UT_DIR}/distribution
+    export PYTHONPATH="$PWD"
+    PYTHONPATH=$PYTHONPATH:../legacy_test pytest test_dirichlet_op.py
     popd
 }
 

@@ -65,7 +65,6 @@ namespace gpu {
  *    }
  *
  */
-
 #define CUDA_KERNEL_LOOP_TYPE(i, num, index_type)                    \
   int64_t __index__ =                                                \
       static_cast<int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;   \

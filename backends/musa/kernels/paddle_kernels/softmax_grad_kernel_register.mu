@@ -21,6 +21,10 @@ limitations under the License. */
 #include "paddle/phi/backends/gpu/gpu_context.h"
 #include "paddle/phi/core/kernel_registry.h"
 #include "paddle/phi/kernels/gpu/flash_attn_utils.h"
+#include "paddle/phi/kernels/impl/softmax_grad_kernel_impl.h"
+
+#include "kernels/musa_context.h"
+#include "kernels/kernels_utils.h"
 
 #include <musa_runtime.h>
 
@@ -30,36 +34,72 @@ using muTensor = ::musa::dnn::Tensor;
 
 namespace phi {
 
+template <typename T>
+static bool UseMudnnDirectSoftmax(const DenseTensor& x, int axis) {
+  const int rank = x.dims().size();
+  const int calc_axis = axis < 0 ? axis + rank : axis;
+  if (rank == 0 || calc_axis < 0 || calc_axis >= rank) {
+    return false;
+  }
+
+  int64_t inner_size = 1;
+  for (int i = calc_axis + 1; i < rank; ++i) {
+    inner_size *= x.dims()[i];
+  }
+  const int64_t dim_size = x.dims()[calc_axis];
+  constexpr int64_t io_bits = 128;
+  const int64_t vec_len = io_bits / (sizeof(T) * 8);
+  return inner_size == 1 && dim_size > 1 && dim_size <= 512 &&
+         dim_size % vec_len != 0;
+}
+
+static bool UsePaddleNativeSoftmax(const DenseTensor& x, int axis) {
+  const int rank = x.dims().size();
+  const int calc_axis = axis < 0 ? axis + rank : axis;
+  if (rank != 3 || calc_axis != 2) {
+    return false;
+  }
+  return (x.dims()[0] == 4 && x.dims()[1] == 36864 && x.dims()[2] == 2) ||
+         (x.dims()[0] == 2 && x.dims()[1] == 32768 && x.dims()[2] == 2);
+}
+
 template <typename T, typename Context>
-void SoftmaxGradKernel(const Context& dev_ctx,
-                       const DenseTensor& out,
-                       const DenseTensor& out_grad,
-                       int axis,
-                       DenseTensor* x_grad) {
-    auto& h = GetMudnnHandle<Context>(dev_ctx);
-    ::musa::dnn::Softmax ddnSoftmax;
-    CHECK_MUDNN_STATUS(ddnSoftmax.SetAlgorithm(::musa::dnn::Softmax::Algorithm::ACCURATE), "SetAlgorithm");
-    CHECK_MUDNN_STATUS(ddnSoftmax.SetMode(::musa::dnn::Softmax::Mode::SOFTMAX), "SetMode");
-    CHECK_MUDNN_STATUS(ddnSoftmax.SetDim(axis), "SetDim");
+void SoftmaxGradMudnnKernel(const Context& dev_ctx,
+                            const DenseTensor& out,
+                            const DenseTensor& out_grad,
+                            int axis,
+                            DenseTensor* x_grad) {
+  if (UsePaddleNativeSoftmax(out, axis)) {
+    VLOG(1) << "using paddle native softmax grad for OCRNet attention shape";
+    phi::SoftmaxGradKernel<T, Context>(dev_ctx, out, out_grad, axis, x_grad);
+    return;
+  }
 
+  const auto softmax_algorithm = UseMudnnDirectSoftmax<T>(out, axis)
+                                     ? ::musa::dnn::Softmax::Algorithm::DIRECT
+                                     : ::musa::dnn::Softmax::Algorithm::ACCURATE;
 
-    dev_ctx.template Alloc<T>(x_grad);
-    auto musa_out = CreateMUTensor(out);
-    auto musa_out_grad = CreateMUTensor(out_grad);
-    auto musa_x_grad = CreateMUTensor(*x_grad);
+  auto& h = GetMudnnHandle<Context>(dev_ctx);
+  ::musa::dnn::Softmax ddnSoftmax;
+  MUDNN_CHECK(ddnSoftmax.SetAlgorithm(softmax_algorithm), "SetAlgorithm");
+  MUDNN_CHECK(ddnSoftmax.SetMode(::musa::dnn::Softmax::Mode::SOFTMAX), "SetMode");
+  MUDNN_CHECK(ddnSoftmax.SetDim(axis), "SetDim");
 
-    auto place = dev_ctx.GetPlace();
-    ::musa::dnn::MemoryMaintainer maintainer =
-        [place](size_t bytes) { return PaddleInternalMemAlloc(bytes, place); };
+  dev_ctx.template Alloc<T>(x_grad);
+  auto musa_out = CreateMUTensor(out);
+  auto musa_out_grad = CreateMUTensor(out_grad);
+  auto musa_x_grad = CreateMUTensor(*x_grad);
 
-    CHECK_MUDNN_STATUS(
-        ddnSoftmax.RunBwd(
-            h,
-            musa_x_grad,
-            musa_out,
-            musa_out_grad,
-            maintainer),
-        "Run Mudnn Softmax Bwd.");
+  auto place = dev_ctx.GetPlace();
+  ::musa::dnn::MemoryMaintainer maintainer =
+      [place](size_t bytes) { return PaddleInternalMemAlloc(bytes, place); };
+
+  MUDNN_CHECK(ddnSoftmax.RunBwd(h,
+                                musa_x_grad,
+                                musa_out,
+                                musa_out_grad,
+                                maintainer),
+              "Run Mudnn Softmax Bwd.");
 }
 
 }
@@ -67,7 +107,7 @@ void SoftmaxGradKernel(const Context& dev_ctx,
 PD_CUSTOM_KERNEL_REGISTER(softmax_grad,
                           musa,
                           ALL_LAYOUT,
-                          phi::SoftmaxGradKernel,
+                          phi::SoftmaxGradMudnnKernel,
                           float,
                           phi::float16,
                           phi::bfloat16) {}

@@ -1,0 +1,62 @@
+-    split,
+-)
+-
+-if TYPE_CHECKING:
++    split,
++)
++
++import logging
++
++
++if TYPE_CHECKING:
+
+-    elif backend == "xccl":
+-        dev_type = global_env.device_type
+-        paddle.device.set_device(f"{dev_type}:{dev_id}")
++    elif backend == "xccl":
++        import os
++        logging.basicConfig(level=logging.INFO, force=True)
++
++        endpoints_str = ""
++        for endpoint in global_env.trainer_endpoints:
++            endpoints_str += endpoint
++        endpoints_str += "ring_id:{}".format("0")
++        endpoints_str_hash = hashlib.md5(
++            endpoints_str.encode(encoding='UTF-8')
++        ).hexdigest()
++
++        dev_type = global_env.device_type
++        tgt = paddle.device.set_device(f"{dev_type}:{dev_id}")
++        _set_default_backend(backend)
++        core.CommContextManager.set_device_id(dev_id)
++        
++        from paddle.distributed.fleet.base.topology import (
++            message2nccl_config,
++        )
++        from . import parallel_helper
++
++        pg = _new_process_group_impl(
++            backend,
++            store,
++            rank,
++            world_size,
++            _default_group_name,
++            pg_options=None,
++            nccl_config=message2nccl_config(
++                None,
++                "default",
++            ),
++        )
++        ranks = list(range(world_size))
++        group = Group(rank, 0, ranks, pg=pg, name=_default_group_name)
++        _set_group_map_by_name(_default_group_name, group)
++        _set_group_map(0, group)
++        _set_group_map_backend(group, backend)
++        _add_new_group(group)
++        parallel_helper._set_parallel_ctx(True)
++
++        logging.info("device type {} and id {}".format(dev_type, dev_id))
++        logging.info(tgt)
+
+-            store, "0", rank, world_size, dev_type
++            store, "0", tgt, rank, world_size, ""

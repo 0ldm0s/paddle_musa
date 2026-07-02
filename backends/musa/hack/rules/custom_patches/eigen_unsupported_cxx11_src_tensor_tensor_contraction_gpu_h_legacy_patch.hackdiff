@@ -1,0 +1,15 @@
+-    #if defined(EIGEN_HIPCC) || (defined(EIGEN_CUDA_SDK_VER) && EIGEN_CUDA_SDK_VER < 90000)
++    #if !defined(EIGEN_MUSACC) && (defined(EIGEN_HIPCC) || (defined(EIGEN_CUDA_SDK_VER) && EIGEN_CUDA_SDK_VER < 90000))
+
+-#if defined(EIGEN_USE_HIP)
+-    setGpuSharedMemConfig(hipSharedMemBankSizeEightByte);
+-#else
+-    setGpuSharedMemConfig(cudaSharedMemBankSizeEightByte);
+-#endif
++#if defined(EIGEN_USE_HIP)
++    setGpuSharedMemConfig(hipSharedMemBankSizeEightByte);
++#elif defined(EIGEN_USE_MUSA)
++    setGpuSharedMemConfig(musaSharedMemBankSizeEightByte);
++#else
++    setGpuSharedMemConfig(cudaSharedMemBankSizeEightByte);
++#endif

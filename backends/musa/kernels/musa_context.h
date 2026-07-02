@@ -26,14 +26,17 @@
 #include "paddle/phi/backends/gpu/gpu_info.h"
 #include "paddle/phi/common/place.h"
 #include "paddle/phi/core/attribute.h"
+#include "paddle/phi/core/dense_tensor.h"
 #include "paddle/phi/core/device_context.h"
 #include "paddle/phi/core/enforce.h"
+#include "paddle/phi/kernels/funcs/eigen/common.h"
+#include "paddle/phi/kernels/funcs/eigen/eigen_function.h"
 #include "mudnn_dynload.h"
 
 namespace phi {
-class DnnWorkspaceHandle {
+class muDnnWorkspaceHandle {
  public:
-  inline DnnWorkspaceHandle(Allocator* allocator, gpuStream_t stream)
+  inline muDnnWorkspaceHandle(Allocator* allocator, gpuStream_t stream)
       : allocator_(allocator), stream_(stream) {
     mtx_ = std::make_unique<std::mutex>();
   }
@@ -66,8 +69,8 @@ class DnnWorkspaceHandle {
 
   TEST_API void ReallocWorkspace(size_t required_workspace_bytes);
 
-  DnnWorkspaceHandle(DnnWorkspaceHandle&&) = default;
-  DnnWorkspaceHandle& operator=(DnnWorkspaceHandle&&) = delete;
+  muDnnWorkspaceHandle(muDnnWorkspaceHandle&&) = default;
+  muDnnWorkspaceHandle& operator=(muDnnWorkspaceHandle&&) = delete;
 
  private:
   Allocator::AllocationPtr allocation_{nullptr};
@@ -104,10 +107,41 @@ static mudnnHandle_t GetDnnHandle(gpuStream_t stream, GPUPlace place) {
   return dnn_handle_;
 }
 
-inline DnnWorkspaceHandle GetDnnWorkspace(Allocator* alloactor,
+inline muDnnWorkspaceHandle GetDnnWorkspace(Allocator* alloactor,
                                           const gpuStream_t& stream) {
-  return DnnWorkspaceHandle(alloactor, stream);
-} 
+  return muDnnWorkspaceHandle(alloactor, stream);
+}
+
+template <typename Context, typename T, size_t D>
+static void RemovePaddingSlice(const Context& dev_ctx,
+                               const DenseTensor* input,
+                               DenseTensor* out,
+                               const std::vector<int>& starts,
+                               const std::vector<int>& axes) {
+  auto& place = *dev_ctx.eigen_device();
+  auto in_dims = input->dims();
+  auto new_out_dims = out->dims();
+  auto offsets = Eigen::DSizes<int64_t, D>();
+  auto extents = Eigen::DSizes<int64_t, D>();
+  for (size_t i = 0; i < D; ++i) {
+    offsets[i] = 0;
+    extents[i] = new_out_dims[i];
+  }
+
+  for (size_t i = 0; i < axes.size(); ++i) {
+    int start = starts[i];
+    if (start < 0) {
+      start = start + in_dims[axes[i]];
+    }
+    start = std::max(start, 0);
+    offsets[axes[i]] = start;
+  }
+
+  auto in_t = EigenTensor<T, D, Eigen::RowMajor>::From(*input);
+  auto out_t = EigenTensor<T, D, Eigen::RowMajor>::From(*out, new_out_dims);
+  funcs::EigenSlice<std::decay_t<decltype(place)>, T, D>::Eval(
+      place, out_t, in_t, offsets, extents);
+}
 }  // namespace phi
 
 // namespace musa {
