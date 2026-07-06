@@ -49,6 +49,21 @@ Paddle MUSA 围绕飞桨框架与摩尔线程的S5000显卡硬件能力之间的
 - GCC / G++、CMake、Make、Git、pip 等基础构建工具；
 - 足够的磁盘空间与内存用于编译 PaddlePaddle 主框架。
 
+#### Docker 镜像
+
+为简化环境搭建，提供了以下预配置的 Docker 镜像：
+
+- **编译构建镜像**  
+  包含编译 Paddle-MUSA 所需的完整依赖，可直接用于构建与安装。  
+  `sh-harbor.mthreads.com/mt-ai/musa-paddle-dev:4.3.5_paddle_musa_release_0_deb_2026-07-02_ubuntu`
+
+- **模型体验镜像**  
+  已安装 Paddle-MUSA 并集成已验证的模型代码，覆盖 6 类应用场景。镜像内提供了各领域的运行说明：  
+  `sh-harbor.mthreads.com/mt-ai/musa-paddle-dev:paddle_musa_model_zoo_release_20260703`  
+  - OCR、检测、分割等视觉模型：`/home/PaddleX/README_MUSA_MODEL_RUN.md`  
+  - 大语言模型与多模态模型：`/home/PaddleFormers/README_MUSA_MODEL_RUN.md`  
+  - 推荐系统模型：`/home/PaddleRec/PaddleRec/README_MUSA_CRITEO.md`
+
 #### 获取源码
 
 ```bash
