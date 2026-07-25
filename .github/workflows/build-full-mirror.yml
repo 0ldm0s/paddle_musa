@@ -1,0 +1,79 @@
+name: Build full mirror
+
+# 手动触发：Actions 页面 → 选择 workflow → Run workflow
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Free disk space
+        run: |
+          echo "=== Before cleanup ==="
+          df -h /
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/local/share/boost
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf "${AGENT_TOOLSDIRECTORY}"
+          sudo apt-get clean
+          echo "=== After cleanup ==="
+          df -h /
+
+      - name: Configure git
+        run: |
+          git config --global http.version HTTP/1.1
+          git config --global http.postBuffer 524288000
+
+      - name: Clone paddle_musa with all submodules
+        run: |
+          git clone --recursive https://github.com/PaddlePaddle/paddle_musa.git
+          cd paddle_musa
+          echo "=== Submodule count ==="
+          git submodule status --recursive | wc -l
+          echo "=== Total size ==="
+          du -sh .
+
+      - name: Remove all .git directories
+        run: |
+          cd paddle_musa
+          find . -name ".git" -exec rm -rf {} + 2>/dev/null || true
+          echo "=== Size after .git cleanup ==="
+          du -sh .
+
+      - name: Create tarball
+        run: |
+          tar -czf paddle_musa_full.tar.gz paddle_musa
+          ls -lh paddle_musa_full.tar.gz
+
+      - name: Check tarball size and split if needed
+        run: |
+          SIZE=$(stat -c%s paddle_musa_full.tar.gz)
+          echo "Tarball size: $SIZE bytes"
+          # GitHub Actions artifact 单文件限制 5GB
+          if [ $SIZE -gt 4800000000 ]; then
+            echo "Tarball > 4.8GB, splitting..."
+            split -b 4500m -d -a 2 paddle_musa_full.tar.gz paddle_musa_full.tar.gz.part.
+            rm paddle_musa_full.tar.gz
+            ls -lh paddle_musa_full.tar.gz.part.*
+            echo "SPLIT=true" >> $GITHUB_ENV
+          else
+            echo "SPLIT=false" >> $GITHUB_ENV
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: paddle_musa_full
+          path: paddle_musa_full*
+          retention-days: 14
+          compression-level: 0
+
+      - name: Summary
+        run: |
+          echo "## Build Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Tarball size: $(ls -lh paddle_musa_full* | head -1)" >> $GITHUB_STEP_SUMMARY
+          echo "- Split: ${{ env.SPLIT }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Artifact: paddle_musa_full (retention 14 days)" >> $GITHUB_STEP_SUMMARY
