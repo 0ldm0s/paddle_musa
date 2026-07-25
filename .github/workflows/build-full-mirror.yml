@@ -28,7 +28,7 @@ jobs:
 
       - name: Clone paddle_musa with all submodules
         run: |
-          git clone --recursive https://github.com/PaddlePaddle/paddle_musa.git
+          git clone --recursive https://github.com/${{ github.repository }}.git
           cd paddle_musa
           echo "=== Submodule count ==="
           git submodule status --recursive | wc -l
