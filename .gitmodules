@@ -4,4 +4,4 @@
 	commit = 529fbc7139f44da6c0046c5aa99959d1aa43c9d4
 [submodule "backends/musa/third_party/mutlass"]
 	path = backends/musa/third_party/mutlass
-	url = https://sh-code.mthreads.com/sw/mutlass.git
+	url = https://github.com/MooreThreads/mutlass.git
