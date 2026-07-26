@@ -35,11 +35,12 @@ jobs:
           echo "=== Total size ==="
           du -sh .
 
-      - name: Remove all .git directories
+      - name: Remove all .git and .gitmodules (so submodule content becomes plain files)
         run: |
           cd paddle_musa
           find . -name ".git" -exec rm -rf {} + 2>/dev/null || true
-          echo "=== Size after .git cleanup ==="
+          find . -name ".gitmodules" -delete
+          echo "=== Size after cleanup ==="
           du -sh .
 
       - name: Create tarball
