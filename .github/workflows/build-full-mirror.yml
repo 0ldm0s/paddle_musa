@@ -35,11 +35,13 @@ jobs:
           echo "=== Total size ==="
           du -sh .
 
-      - name: Remove all .git and .gitmodules (so submodule content becomes plain files)
+      - name: Remove .git/.gitmodules at top level only (keep third_party .git for cmake ExternalProject patch)
         run: |
           cd paddle_musa
-          find . -name ".git" -exec rm -rf {} + 2>/dev/null || true
-          find . -name ".gitmodules" -delete
+          rm -rf .git
+          rm -f .gitmodules
+          rm -rf Paddle/.git
+          rm -f Paddle/.gitmodules
           echo "=== Size after cleanup ==="
           du -sh .
 
